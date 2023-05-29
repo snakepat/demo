@@ -1,36 +1,64 @@
 #!/usr/bin/python3
-# Write Python 3 code in this online editor and run it.
+# -*- coding: utf-8 -*- #考虑到python3默认的编译格式本来就是utf-8,这条多余了
 import requests
 import os
+import sys #用以获取输入参数
+import platform #判断当前系统是linux or window，因为路径分隔符的不同
 
-#print("hello, word");
+file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 
 #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
-def panbaidu_upload():
+def Panbaidu_upload():
     
 
     return
 
-#第一次获得access—token的内容并保存到本地文件夹的vps_save.scn文件中
-def get_First_Access_Token():
+#第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
+def Panbaidu_First_Access_Token():
 
 
     return
 
-#获得Access Token更新并保存到本地文件夹的vps_save.scn文件中
-def refresh_Access_Token():
+#获得Access Token更新并保存到本地文件夹的fsave.ini文件中
+def Panbaidu_Refresh_Access_Token():
 
 
     return
 
 #遍历当前文件列表并存贮相关信息
-def find_dir():
+# find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
+def find_cur(string, path):
+    # print('cur_dir is %s' % os.path.abspath(path))
+
+    # 遍历当前文件，找出符合要求的文件，将路径添加到l中
+    for x in os.listdir(path):
+        # print(path+'/'+x)
+        if os.path.isfile(os.path.join(path,x)):
+            if string in x:
+                file_dir.append(os.path.join(path,x))
+    #debug
+    # if not l:
+    #     # print('no %s in %s' % (string, os.path.abspath(path)))
+    #     print("This is no file at all")
+    # else:
+    #     print(l)
 
 
-    return
+# deeper_dir(string, p)主要通过递归，在每个子目录中调用find_cur()
+def deeper_dir(string='', pathcurrent=os.path.dirname(os.path.abspath(__file__))): # '.'表示当前路径，'..'表示当前路径的父目录
+    
+    find_cur(string, pathcurrent)
+    for x in os.listdir(pathcurrent):
+        # 关键，将父目录的路径保留下来，保证在完成子目录的查找之后能够返回继续遍历。
+        pathson = pathcurrent 
+        if os.path.isdir(pathson):
+            pathson = os.path.join(pathson, x)
+            if os.path.isdir(pathson) and not os.path.basename(pathson).startswith('.'):#排除隐藏文件
+                deeper_dir(string, pathson)
+
 
 #文件加密处理，可选服务，针对百度网盘的和谐功能
-def encrypt_Compression():
+def Encrypt_Compression():
 
 
     return
@@ -38,29 +66,24 @@ def encrypt_Compression():
 #预上传
 
 
-def pre_upload():
+def Panbaidu_pre_upload():
     
 
 
     return
 
 
-url = "http://pan.baidu.com/rest/2.0/xpan/file?method=precreate&access_token=12.a6b7dbd428f731035f771b8d15063f61.86400.1292922000-2346678-124328"
+if __name__ == '__main__':
+    # deeper_dir()
+    #获取当前py脚本所在文件绝对位置,os.path.abspath(__file__)为当前文件位置
+    # cur_dir = os.path.dirname(os.path.abspath(__file__))
+    # print(cur_dir)
+    # find_cur('',cur_dir)
+    deeper_dir()
+    print(file_dir)
 
-payload = {'path': '/apps/test/test.jpg',
-'size': '91037',
-'rtype': '1',
-'isdir': '0',
-'autoinit': '1',
-'block_list': '["e08b8e863d2fffce685530608305598c"]'}
-files = [
 
-]
 
-headers = {
-  'Cookie': 'BAIDUID=56BE0870011A115CFA43E19EA4CE92C2:FG=1; BIDUPSID=56BE0870011A115CFA43E19EA4CE92C2; PSTM=1535714267'
-}
 
-response = requests.request("POST", url, headers=headers, data = payload, files = files)
-
-print(response.text.encode('utf8'))
+#部分内容学习参考自如下网站:
+# https://blog.csdn.net/moshlwx/article/details/52694397
