@@ -25,17 +25,18 @@ def Panbaidu_Refresh_Access_Token():
 
     return
 
+
 #遍历当前文件列表并存贮相关信息
 # find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
-def find_cur(string, path):
+def find_cur(string, pathcurrent):
     # print('cur_dir is %s' % os.path.abspath(path))
 
     # 遍历当前文件，找出符合要求的文件，将路径添加到l中
-    for x in os.listdir(path):
+    for x in os.listdir(pathcurrent):
         # print(path+'/'+x)
-        if os.path.isfile(os.path.join(path,x)):
+        if os.path.isfile(os.path.join(pathcurrent,x)):
             if string in x:
-                file_dir.append(os.path.join(path,x))
+                file_dir.append(os.path.join(pathcurrent,x))
     #debug
     # if not l:
     #     # print('no %s in %s' % (string, os.path.abspath(path)))
@@ -43,7 +44,7 @@ def find_cur(string, path):
     # else:
     #     print(l)
 
-
+#通过递归实现对当前目录下所有文件的遍历(包括子目录的文件)
 # deeper_dir(string, p)主要通过递归，在每个子目录中调用find_cur()
 def deeper_dir(string='', pathcurrent=os.path.dirname(os.path.abspath(__file__))): # '.'表示当前路径，'..'表示当前路径的父目录
     
@@ -64,23 +65,21 @@ def Encrypt_Compression():
     return
 
 #预上传
-
-
 def Panbaidu_pre_upload():
     
-
-
     return
 
 
 if __name__ == '__main__':
-    # deeper_dir()
-    #获取当前py脚本所在文件绝对位置,os.path.abspath(__file__)为当前文件位置
-    # cur_dir = os.path.dirname(os.path.abspath(__file__))
-    # print(cur_dir)
-    # find_cur('',cur_dir)
+    #迭代获取所有子文件并把它们的路径保存到file_dir = []中
     deeper_dir()
-    print(file_dir)
+    
+    path = file_dir[0]
+    print(path)
+    statinfo = os.stat(path)
+    print(statinfo)
+    # file_dir.remove()
+
 
 
 
