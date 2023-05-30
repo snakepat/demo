@@ -3,7 +3,19 @@
 import requests
 import os
 import sys #用以获取输入参数
-import platform #判断当前系统是linux or window，因为路径分隔符的不同
+import platform #用以判断当前系统是什么系统
+import math 
+import hashlib
+
+
+if(platform.system()=='Windows'):
+    path_separator = "\\"    
+elif(platform.system()=='Linux'):
+    path_separator = "/"
+else:
+    assert 0, '该系统目前只能在linux和windows下执行'
+
+chunk_size = 1024*1024*4 
 
 file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 
@@ -79,6 +91,45 @@ def Encrypt_Compression():
 
     return
 
+#功能：        文件分片,分片为固定大小
+#输入：        需要被分片的文件路径
+#返回：        被分片的子文件路径
+#补充说明：    
+def Split_file(file_path):
+    current_path = os.path.dirname(file_path)
+    filename = file_path.split(path_separator)[-1:][0]
+    total_size = os.path.getsize(file_path)
+    current_chunk = 0
+    #根据目标大小获得分片数目
+    total_chunk = math.ceil(total_size/chunk_size)
+    #用来存贮分片文件路径的
+    slice_filepath_list = []
+    while current_chunk < total_chunk:
+        start = current_chunk*chunk_size
+        end = min(total_size, start+chunk_size)
+        with open(file_path, 'rb') as f1:
+            f1.seek(start)
+            file_chunk_data = f1.read(end-start)
+            slice_filename = "{fname}_{i}".format(fname = filename, i = current_chunk)
+            slice_filepath = os.path.join(current_path,slice_filename)
+            f2 = open(slice_filepath,"wb")
+            f2.write(file_chunk_data)      
+            f2.close
+            slice_filepath_list.append(slice_filepath)
+        current_chunk = current_chunk + 1
+
+
+    return slice_filepath_list
+
+#使用hashlib库获得文件的MD5加密信息
+def get_md5(path):
+    m = hashlib.md5()
+    with open(path, 'rb') as f:
+        for line in f:
+            m.update(line)
+    md5code = m.hexdigest()
+    return md5code
+
 #预上传
 def Panbaidu_pre_upload():
     
@@ -87,17 +138,34 @@ def Panbaidu_pre_upload():
 
 if __name__ == '__main__':
     #迭代获取所有子文件并把它们的路径保存到file_dir = []中
-    deeper_dir()
-    # print("%s\n",file_dir)
-    #排除本程序所用脚本文本
-    del_default_file()
-    # print(file_dir)
+    # deeper_dir()
+    # # print("%s\n",file_dir)
+    # #排除本程序所用脚本文本
+    # del_default_file()
+    # # print("%s\n",file_dir)
     
     # path = file_dir[0]
     # print(path)
     # statinfo = os.stat(path)
     # print(statinfo)
     # file_dir.remove()
+
+    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
+    teststring = "/root/temp/2023.tar"
+    slice_filepath_list = Split_file(teststring)
+    print(slice_filepath_list)
+    for filepath in slice_filepath_list:
+        value_md5 = get_md5(filepath)
+        print(value_md5)
+    # print(os.path.getsize(teststring))
+
+
+
+
+
+
+
+
 
 
 
