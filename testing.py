@@ -29,14 +29,12 @@ def Panbaidu_Refresh_Access_Token():
 #遍历当前文件列表并存贮相关信息
 # find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
 def find_cur(string, pathcurrent):
-    # print('cur_dir is %s' % os.path.abspath(path))
-
     # 遍历当前文件，找出符合要求的文件，将路径添加到l中
     for x in os.listdir(pathcurrent):
-        # print(path+'/'+x)
-        if os.path.isfile(os.path.join(pathcurrent,x)):
-            if string in x:
-                file_dir.append(os.path.join(pathcurrent,x))
+        pathson = os.path.join(pathcurrent,x)
+        if os.path.isfile(pathson):
+            if string in x :
+                file_dir.append(pathson)
     #debug
     # if not l:
     #     # print('no %s in %s' % (string, os.path.abspath(path)))
@@ -49,14 +47,31 @@ def find_cur(string, pathcurrent):
 def deeper_dir(string='', pathcurrent=os.path.dirname(os.path.abspath(__file__))): # '.'表示当前路径，'..'表示当前路径的父目录
     
     find_cur(string, pathcurrent)
+    
     for x in os.listdir(pathcurrent):
         # 关键，将父目录的路径保留下来，保证在完成子目录的查找之后能够返回继续遍历。
         pathson = pathcurrent 
         if os.path.isdir(pathson):
             pathson = os.path.join(pathson, x)
-            if os.path.isdir(pathson) and not os.path.basename(pathson).startswith('.'):#排除隐藏文件
+            if os.path.isdir(pathson) and not os.path.basename(pathson).startswith('.') :#排除隐藏文件
                 deeper_dir(string, pathson)
 
+#排除file_dir中本程序所用文件
+def del_file(string):
+    if string in file_dir:
+        file_dir.remove(string)
+    else:
+        print( "%s isn't in the file_dir",string)
+
+    return
+
+#排除file_dir中本程序所用脚本或文件
+def del_default_file():
+    pathcurrent = os.path.dirname(os.path.abspath(__file__))
+    del_file(os.path.join(pathcurrent,"testing.py"))
+    del_file(os.path.join(pathcurrent,"README.md"))
+    del_file(os.path.join(pathcurrent,"fsave.ini"))
+    return
 
 #文件加密处理，可选服务，针对百度网盘的和谐功能
 def Encrypt_Compression():
@@ -73,11 +88,15 @@ def Panbaidu_pre_upload():
 if __name__ == '__main__':
     #迭代获取所有子文件并把它们的路径保存到file_dir = []中
     deeper_dir()
+    # print("%s\n",file_dir)
+    #排除本程序所用脚本文本
+    del_default_file()
+    # print(file_dir)
     
-    path = file_dir[0]
-    print(path)
-    statinfo = os.stat(path)
-    print(statinfo)
+    # path = file_dir[0]
+    # print(path)
+    # statinfo = os.stat(path)
+    # print(statinfo)
     # file_dir.remove()
 
 
