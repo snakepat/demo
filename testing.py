@@ -184,9 +184,9 @@ if __name__ == '__main__':
     # print(statinfo)
     # file_dir.remove()
 
-    teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
+    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
     # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
-    # teststring = "/root/temp/2023.tar"
+    teststring = "/root/temp/2023.tar"
     
     #根据目标文件的大小选择是否分片
     if os.path.getsize(teststring) > chunk_size:
