@@ -6,7 +6,7 @@ import sys #用以获取输入参数
 import platform #用以判断当前系统是什么系统
 import math 
 import hashlib
-
+from urllib.parse import urlencode
 
 if(platform.system()=='Windows'):
     path_separator = "\\"    
@@ -27,7 +27,8 @@ def Panbaidu_upload():
 
 #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
 def Panbaidu_First_Access_Token():
-
+    print("请浏览出现的网址，完成百度网盘的授权，并将输入获得的code值\n")
+    print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783")
 
     return
 
@@ -47,12 +48,6 @@ def find_cur(string, pathcurrent):
         if os.path.isfile(pathson):
             if string in x :
                 file_dir.append(pathson)
-    #debug
-    # if not l:
-    #     # print('no %s in %s' % (string, os.path.abspath(path)))
-    #     print("This is no file at all")
-    # else:
-    #     print(l)
 
 #通过递归实现对当前目录下所有文件的遍历(包括子目录的文件)
 # deeper_dir(string, p)主要通过递归，在每个子目录中调用find_cur()
@@ -91,33 +86,39 @@ def Encrypt_Compression():
 
     return
 
-#功能：        文件分片,分片为固定大小
-#输入：        需要被分片的文件路径
-#返回：        被分片的子文件路径
+#功能：    文件分片,分片为固定大小
+#输入：    需要被分片的文件路径
+#返回：    被分片的子文件路径
 #补充说明：    
 def Split_file(file_path):
     current_path = os.path.dirname(file_path)
-    filename = file_path.split(path_separator)[-1:][0]
+    # filename = file_path.split(path_separator)[-1:][0]
+    filename = file_path.split("/")[-1:][0]
     total_size = os.path.getsize(file_path)
     current_chunk = 0
     #根据目标大小获得分片数目
     total_chunk = math.ceil(total_size/chunk_size)
-    #用来存贮分片文件路径的
+    #用来存贮分片文件路径
     slice_filepath_list = []
+    #循环分解出每一个分片
     while current_chunk < total_chunk:
         start = current_chunk*chunk_size
         end = min(total_size, start+chunk_size)
         with open(file_path, 'rb') as f1:
             f1.seek(start)
             file_chunk_data = f1.read(end-start)
+            #分片文件命名规则
             slice_filename = "{fname}_{i}".format(fname = filename, i = current_chunk)
             slice_filepath = os.path.join(current_path,slice_filename)
+            #新建分片文件
             f2 = open(slice_filepath,"wb")
             f2.write(file_chunk_data)      
             f2.close
             slice_filepath_list.append(slice_filepath)
         current_chunk = current_chunk + 1
-
+    
+    #运行结束后删除源文件/需谨慎，确认无误再删除
+    
 
     return slice_filepath_list
 
@@ -131,9 +132,42 @@ def get_md5(path):
     return md5code
 
 #预上传
-def Panbaidu_pre_upload():
+#输入：1.目标文件在系统中的目录，2.分片前的目标文件的大小 3.按顺序排列的分片文件的md5列表
+#输出：返回相应
+#access_token的获取方式需要修改
+def Panbaidu_pre_upload(path, size, md5_list):
+
+    default_path = "/apps/fsave"
+    path_tmp = path.replace('\\','/')
+    current_path = default_path + path_tmp
     
-    return
+    url = "http://pan.baidu.com/rest/2.0/xpan/file?method=precreate&access_token=121.21e6ac482faf405b705987a28bc78715.YBAM9nUtP0rjhRmH5EFWThMvxQCz6imSxqDxr8T.CNAyng"
+
+    payload = {'path': current_path,
+    'size': size,
+    # 'rtype': '2',
+    'isdir': '0',
+    'autoinit': '1',
+    'block_list': md5_list}
+    # print(payload)
+    print(current_path)
+    print(size)
+    print(md5_list)
+    files = [
+
+    ]
+    
+    headers = {
+        # 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.57'
+        'Cookie': 'BAIDUID=56BE0870011A115CFA43E19EA4CE92C2:FG=1; BIDUPSID=56BE0870011A115CFA43E19EA4CE92C2; PSTM=1535714267'
+    }
+    # BDUSS=FpWb1RxRlFpfktjU0tyR1pDZWpUY01wcGRYRjlnYjRjOHhNNVZEVmZGNlRUS0JrSVFBQUFBJCQAAAAAAAAAAAEAAACcB-jjva26~rzH0uTLvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJO~eGSTv3hkR;
+
+    # response = requests.request("POST", url, headers=headers, data = payload, files = files)
+    response = requests.request("POST", url, data=payload)
+    # response = requests.post(url, data=payload)
+
+    return response
 
 
 if __name__ == '__main__':
@@ -150,14 +184,31 @@ if __name__ == '__main__':
     # print(statinfo)
     # file_dir.remove()
 
-    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
-    teststring = "/root/temp/2023.tar"
-    slice_filepath_list = Split_file(teststring)
-    print(slice_filepath_list)
+    teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
+    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
+    # teststring = "/root/temp/2023.tar"
+    
+    #根据目标文件的大小选择是否分片
+    if os.path.getsize(teststring) > chunk_size:
+        slice_filepath_list = Split_file(teststring)
+    else:
+        slice_filepath_list = []
+        slice_filepath_list.append(teststring)
+    
+    # print(slice_filepath_list)
+    md5_list = []
     for filepath in slice_filepath_list:
         value_md5 = get_md5(filepath)
-        print(value_md5)
-    # print(os.path.getsize(teststring))
+        md5_list.append(value_md5)
+    
+    # print(md5_list)
+    father_path = os.path.dirname(os.path.abspath(__file__))
+    filename = teststring.split(father_path)[-1:][0]
+
+    size = os.path.getsize(teststring)
+    response = Panbaidu_pre_upload(filename, size , md5_list)
+    print(response.text)
+
 
 
 
@@ -173,3 +224,4 @@ if __name__ == '__main__':
 
 #部分内容学习参考自如下网站:
 # https://blog.csdn.net/moshlwx/article/details/52694397
+# https://blog.csdn.net/a2824256/article/details/119887954
