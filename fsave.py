@@ -6,7 +6,13 @@ import sys #用以获取输入参数
 import platform #用以判断当前系统是什么系统
 import math 
 import hashlib
+import configparser    #填写配置文件
+import datetime         #时间计算问题
+   
+
+
 from urllib.parse import urlencode
+import json
 
 if(platform.system()=='Windows'):
     path_separator = "\\"    
@@ -16,26 +22,114 @@ else:
     assert 0, '该系统目前只能在linux和windows下执行'
 
 chunk_size = 1024*1024*4 
-
 file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
+# access_token获取地址
+access_token_api = 'https://openapi.baidu.com/oauth/2.0/token?'
+# 预创建文件接口
+precreate_api = 'https://pan.baidu.com/rest/2.0/xpan/file?'
+# 分片上传api
+upload_api = 'https://d.pcs.baidu.com/rest/2.0/pcs/superfile2?'
+# 创建文件api
+create_api = 'https://pan.baidu.com/rest/2.0/xpan/file?'
+
 
 #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
 def Panbaidu_upload():
+        #迭代获取所有子文件并把它们的路径保存到file_dir = []中
+    # deeper_dir()
+    # # print("%s\n",file_dir)
+    # #排除本程序所用脚本文本
+    # del_default_file()
+    # # print("%s\n",file_dir)
+    
+    # path = file_dir[0]
+    # print(path)
+    # statinfo = os.stat(path)
+    # print(statinfo)
+    # file_dir.remove()
+
+    teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
+    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
+    # teststring = "/root/temp/2023.tar"
+    
+    #根据目标文件的大小选择是否分片
+    if os.path.getsize(teststring) > chunk_size:
+        slice_filepath_list = Split_file(teststring)
+    else:
+        slice_filepath_list = []
+        slice_filepath_list.append(teststring)
+    
+    # print(slice_filepath_list)
+    md5_list = []
+    for filepath in slice_filepath_list:
+        value_md5 = get_md5(filepath)
+        md5_list.append(value_md5)
+    
+    # print(md5_list)
+    father_path = os.path.dirname(os.path.abspath(__file__))
+    filename = teststring.split(father_path)[-1:][0]
+
+    size = os.path.getsize(teststring)
+    response = Panbaidu_pre_upload(filename, size , md5_list)
     
 
     return
 
 #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
 def Panbaidu_First_Access_Token():
-    print("请浏览出现的网址，完成百度网盘的授权，并将输入获得的code值\n")
-    print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783")
+    config = configparser.ConfigParser()
+    config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
+    # list = config.sections()
+    # for config_panbaidu in config.sections():
+        # for "is"
+    if(config.getint("config_panbaidu","isfirsttime")):
+        print("请浏览出现的网址，完成百度网盘的授权，并将获得的code值输入:\n")
+        print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
+        code = input("请输入你得到的code值\n")
 
+        params = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
+            'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
+            'redirect_uri': 'oob'
+        }  
+
+        url = access_token_api + urlencode(params)
+        
+        payload = {}
+        headers = {
+        'User-Agent': 'pan.baidu.com'
+        }
+        response = requests.request("GET", url, headers=headers, data = payload)
+        # print(response.text.encode('utf8'))
+        # time.sleep(1)
+        json_resp = json.loads(response.content)
+        # print(json_resp)
+        print(type(json_resp['access_token']))
+        config.set("config_panbaidu","access_token",json_resp['access_token'])
+        config.set("config_panbaidu","refresh_token",json_resp['refresh_token'])
+        config.set("config_panbaidu","refresh_token",datetime.datetime.strptime(datetime.datetime.now(),"%Y-%m-%d %H:%M:%S"))
+
+    # time_str = config.get("config_panbaidu","lastkeytime")
+    # lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+    # nowkeytime = datetime.datetime.now()
+    # days_after_30 = lastkeytime + datetime.timedelta(days=30)
+    # if ((days_after_30)<nowkeytime):
+    #     print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:\n")
+    #     print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
+    #     code = input("请输入你得到的code值\n")
+
+    
+    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+    config.write(o)
+    o.close()
     return
 
 #获得Access Token更新并保存到本地文件夹的fsave.ini文件中
 def Panbaidu_Refresh_Access_Token():
-
-
+    config = configparser.ConfigParser()
+    config.read()
     return
 
 
@@ -69,13 +163,13 @@ def del_file(string):
         file_dir.remove(string)
     else:
         print( "%s isn't in the file_dir",string)
-
+        assert 0
     return
 
 #排除file_dir中本程序所用脚本或文件
 def del_default_file():
     pathcurrent = os.path.dirname(os.path.abspath(__file__))
-    del_file(os.path.join(pathcurrent,"testing.py"))
+    del_file(os.path.join(pathcurrent,"fsave.py"))
     del_file(os.path.join(pathcurrent,"README.md"))
     del_file(os.path.join(pathcurrent,"fsave.ini"))
     return
@@ -135,13 +229,17 @@ def get_md5(path):
 #输入：1.目标文件在系统中的目录，2.分片前的目标文件的大小 3.按顺序排列的分片文件的md5列表
 #输出：返回相应
 #access_token的获取方式需要修改
+#注意python列表作为json形式的值的时候需要用json.dumps()函数
+#或者 使用'[""]'的形式，注意这是python里少数需要注意单双引号区别的情况
 def Panbaidu_pre_upload(path, size, md5_list):
-
-    default_path = "/apps/fsave"
+    
+    default_path = "/apps/fsave"#百度开发平台要求的格式
     path_tmp = path.replace('\\','/')
     current_path = default_path + path_tmp
     
     url = "http://pan.baidu.com/rest/2.0/xpan/file?method=precreate&access_token=121.21e6ac482faf405b705987a28bc78715.YBAM9nUtP0rjhRmH5EFWThMvxQCz6imSxqDxr8T.CNAyng"
+    
+    md5_list = json.dumps(md5_list)
 
     payload = {'path': current_path,
     'size': size,
@@ -149,65 +247,22 @@ def Panbaidu_pre_upload(path, size, md5_list):
     'isdir': '0',
     'autoinit': '1',
     'block_list': md5_list}
-    # print(payload)
-    print(current_path)
-    print(size)
-    print(md5_list)
-    files = [
 
-    ]
-    
-    headers = {
-        # 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.57'
-        'Cookie': 'BAIDUID=56BE0870011A115CFA43E19EA4CE92C2:FG=1; BIDUPSID=56BE0870011A115CFA43E19EA4CE92C2; PSTM=1535714267'
-    }
-    # BDUSS=FpWb1RxRlFpfktjU0tyR1pDZWpUY01wcGRYRjlnYjRjOHhNNVZEVmZGNlRUS0JrSVFBQUFBJCQAAAAAAAAAAAEAAACcB-jjva26~rzH0uTLvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJO~eGSTv3hkR;
-
-    # response = requests.request("POST", url, headers=headers, data = payload, files = files)
     response = requests.request("POST", url, data=payload)
-    # response = requests.post(url, data=payload)
-
-    return response
-
+    json_resp = json.loads(response.content)
+    
+    if not int(json_resp['errno']):
+        return response
+    else:
+        print(response)
+        assert 0, '预上传失败，请检查失败原因'
+        
 
 if __name__ == '__main__':
-    #迭代获取所有子文件并把它们的路径保存到file_dir = []中
-    # deeper_dir()
-    # # print("%s\n",file_dir)
-    # #排除本程序所用脚本文本
-    # del_default_file()
-    # # print("%s\n",file_dir)
-    
-    # path = file_dir[0]
-    # print(path)
-    # statinfo = os.stat(path)
-    # print(statinfo)
-    # file_dir.remove()
+    # Panbaidu_upload()
+    Panbaidu_First_Access_Token()
 
-    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
-    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
-    teststring = "/root/temp/2023.tar"
-    
-    #根据目标文件的大小选择是否分片
-    if os.path.getsize(teststring) > chunk_size:
-        slice_filepath_list = Split_file(teststring)
-    else:
-        slice_filepath_list = []
-        slice_filepath_list.append(teststring)
-    
-    # print(slice_filepath_list)
-    md5_list = []
-    for filepath in slice_filepath_list:
-        value_md5 = get_md5(filepath)
-        md5_list.append(value_md5)
-    
-    # print(md5_list)
-    father_path = os.path.dirname(os.path.abspath(__file__))
-    filename = teststring.split(father_path)[-1:][0]
 
-    size = os.path.getsize(teststring)
-    response = Panbaidu_pre_upload(filename, size , md5_list)
-    print(response.text)
 
 
 
