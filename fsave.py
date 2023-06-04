@@ -8,7 +8,6 @@ import math
 import hashlib
 import configparser    #填写配置文件
 import datetime         #时间计算问题
-   
 
 
 from urllib.parse import urlencode
@@ -34,8 +33,10 @@ create_api = 'https://pan.baidu.com/rest/2.0/xpan/file?'
 
 
 #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
-def Panbaidu_upload():
-        #迭代获取所有子文件并把它们的路径保存到file_dir = []中
+def Panbaidu_file_upload():
+    Panbaidu_First_Access_Token()
+    Panbaidu_Refresh_Access_Token()    
+    #迭代获取所有子文件并把它们的路径保存到file_dir = []中
     # deeper_dir()
     # # print("%s\n",file_dir)
     # #排除本程序所用脚本文本
@@ -47,8 +48,8 @@ def Panbaidu_upload():
     # statinfo = os.stat(path)
     # print(statinfo)
     # file_dir.remove()
-
-    teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
+    teststring = "D:\\git\\code\\test\\test\\头像与背景\\头像与背景.zip"
+    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
     # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
     # teststring = "/root/temp/2023.tar"
     
@@ -58,20 +59,30 @@ def Panbaidu_upload():
     else:
         slice_filepath_list = []
         slice_filepath_list.append(teststring)
-    
+
+    father_path = os.path.dirname(os.path.abspath(__file__))
+    filename = teststring.split(father_path)[-1:][0]
+
     # print(slice_filepath_list)
     md5_list = []
     for filepath in slice_filepath_list:
         value_md5 = get_md5(filepath)
         md5_list.append(value_md5)
+        
+
+
     
     # print(md5_list)
-    father_path = os.path.dirname(os.path.abspath(__file__))
-    filename = teststring.split(father_path)[-1:][0]
+    
+    
 
     size = os.path.getsize(teststring)
-    response = Panbaidu_pre_upload(filename, size , md5_list)
-    
+    json_pre_response = Panbaidu_pre_upload(filename, size , md5_list)
+    print(json_pre_response)
+
+    Panbaidu_upload(filename,slice_filepath_list,json_pre_response['uploadid'])
+    json_create_response = Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
+
 
     return
 
@@ -184,7 +195,8 @@ def Panbaidu_Refresh_Access_Token():
 
 
 #遍历当前文件列表并存贮相关信息
-# find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
+#   find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
+#   输出相对路径
 def find_cur(string, pathcurrent):
     # 遍历当前文件，找出符合要求的文件，将路径添加到l中
     for x in os.listdir(pathcurrent):
@@ -283,14 +295,24 @@ def get_md5(path):
 #或者 使用'[""]'的形式，注意这是python里少数需要注意单双引号区别的情况
 def Panbaidu_pre_upload(path, size, md5_list):
     
+    config = configparser.ConfigParser()
+    config.read('fsave.ini')
+    
     default_path = "/apps/fsave"#百度开发平台要求的格式
     path_tmp = path.replace('\\','/')
     current_path = default_path + path_tmp
-    
-    url = "http://pan.baidu.com/rest/2.0/xpan/file?method=precreate&access_token=121.21e6ac482faf405b705987a28bc78715.YBAM9nUtP0rjhRmH5EFWThMvxQCz6imSxqDxr8T.CNAyng"
+    print(current_path)
+
+    access_token = config.get("config_panbaidu","access_token")
+
+    params = {
+                    'method': 'precreate',
+                    'access_token': access_token,
+                }  
+
+    url = precreate_api + urlencode(params)
     
     md5_list = json.dumps(md5_list)
-
     payload = {'path': current_path,
     'size': size,
     # 'rtype': '2',
@@ -300,18 +322,97 @@ def Panbaidu_pre_upload(path, size, md5_list):
 
     response = requests.request("POST", url, data=payload)
     json_resp = json.loads(response.content)
+
+    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+    config.write(o)
+    o.close()
     
     if not int(json_resp['errno']):
-        return response
+        return json_resp
     else:
-        print(response)
+        print(json_resp)
         assert 0, '预上传失败，请检查失败原因'
         
+#输入：目标文件在系统中的相对路径、分片后分片文件路径列表、预上传得到的uploadid
+#无输出
+def Panbaidu_upload(filename,path_list,uploadid):
+    
+    config = configparser.ConfigParser()
+    config.read('fsave.ini')
+
+
+    access_token = config.get("config_panbaidu","access_token")
+
+    default_path = "/apps/fsave"#百度开发平台要求的格式
+    path_tmp = filename.replace('\\','/')
+    current_path = default_path + path_tmp#在百度文件中的存储模式
+    
+    for i in range(len(path_list)):
+
+        params = {
+                        'method': 'upload',
+                        'access_token': access_token,
+                        'uploadid': uploadid,
+                        'type': 'tmpfile',
+                        'partseq': i,
+                        'path': current_path
+                    }  
+
+        url = upload_api + urlencode(params)
+        
+        payload = {}
+        headers = {}
+        files = [
+        ('file', open(path_list[i],'rb'))
+        ]
+        response = requests.request("POST",url=url, headers=headers, data = payload, files = files)
+        json_resp = json.loads(response.content)
+    
+    return 
+        
+#输入：1.目标文件在系统中的相对路径，2.分片前的目标文件的大小 3.按顺序排列的分片文件的md5列表，预上传得到的uploadid
+#输出：响应结果
+def Panbaidu_createfile(filename,size,md5_list,uploadid):
+    config = configparser.ConfigParser()
+    config.read('fsave.ini')
+    access_token = config.get("config_panbaidu","access_token")
+
+    #url
+    params = {
+        'method': 'create',
+        'access_token': access_token,
+    }  
+    url = create_api + urlencode(params)
+
+    #date要求的基本内容
+    md5_list = json.dumps(md5_list)
+    default_path = "/apps/fsave"#百度开发平台要求的格式
+    path_tmp = filename.replace('\\','/')
+    current_path = default_path + path_tmp#在百度文件中的存储模式
+
+    payload = {
+        'path': current_path,
+        'size': size,
+        'rtype': '1',
+        'isdir': '0',
+        'uploadid': uploadid,
+        'block_list': md5_list
+        }
+    headers = {}
+    files = []
+    response = requests.request("POST",url=url, headers=headers, data = payload, files = files)
+    json_resp = json.loads(response.content)
+
+
+    print(json_resp)
+
+    return
+    
+
 
 if __name__ == '__main__':
-    Panbaidu_upload()
-    # Panbaidu_First_Access_Token()
-    # Panbaidu_Refresh_Access_Token()
+    Panbaidu_file_upload()
+
 
 
 
