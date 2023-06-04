@@ -106,19 +106,44 @@ def Panbaidu_First_Access_Token():
         # time.sleep(1)
         json_resp = json.loads(response.content)
         # print(json_resp)
-        print(type(json_resp['access_token']))
+
+        nowtime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         config.set("config_panbaidu","access_token",json_resp['access_token'])
         config.set("config_panbaidu","refresh_token",json_resp['refresh_token'])
-        config.set("config_panbaidu","refresh_token",datetime.datetime.strptime(datetime.datetime.now(),"%Y-%m-%d %H:%M:%S"))
+        config.set("config_panbaidu","lastkeytime",nowtime)
+        config.set("config_panbaidu","isfirsttime","0")
 
-    # time_str = config.get("config_panbaidu","lastkeytime")
-    # lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-    # nowkeytime = datetime.datetime.now()
-    # days_after_30 = lastkeytime + datetime.timedelta(days=30)
-    # if ((days_after_30)<nowkeytime):
-    #     print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:\n")
-    #     print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
-    #     code = input("请输入你得到的code值\n")
+    time_str = config.get("config_panbaidu","lastkeytime")
+    lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+    nowkeytime = datetime.datetime.now()
+    days_after_30 = lastkeytime + datetime.timedelta(days=30)
+    if ((days_after_30)<nowkeytime):
+        print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:\n")
+        print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
+        code = input("请输入你得到的code值\n")
+        
+        params = {
+                    'grant_type': 'authorization_code',
+                    'code': code,
+                    'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
+                    'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
+                    'redirect_uri': 'oob'
+                }  
+
+        url = access_token_api + urlencode(params)
+        payload = {}
+        headers = {
+        'User-Agent': 'pan.baidu.com'
+        }
+
+        response = requests.request("GET", url, headers=headers, data = payload)
+        json_resp = json.loads(response.content)
+        # print(json_resp)
+
+        config.set("config_panbaidu","access_token",json_resp['access_token'])
+        config.set("config_panbaidu","refresh_token",json_resp['refresh_token'])
+        config.set("config_panbaidu","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     
     o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
@@ -129,7 +154,32 @@ def Panbaidu_First_Access_Token():
 #获得Access Token更新并保存到本地文件夹的fsave.ini文件中
 def Panbaidu_Refresh_Access_Token():
     config = configparser.ConfigParser()
-    config.read()
+    config.read('fsave.ini')
+    refresh_token = config.get("config_panbaidu","refresh_token")
+
+    payload = {}
+    headers = {
+    'User-Agent': 'pan.baidu.com'
+    }
+    params = {
+                    'grant_type': 'refresh_token',
+                    'refresh_token': refresh_token,
+                    'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
+                    'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
+                }  
+
+    url = access_token_api + urlencode(params)
+
+    response = requests.request("GET", url, headers=headers, data = payload)
+    json_resp = json.loads(response.content)
+
+    config.set("config_panbaidu","access_token",json_resp['access_token'])
+    config.set("config_panbaidu","refresh_token",json_resp['refresh_token'])
+    config.set("config_panbaidu","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+    config.write(o)
+    o.close()
     return
 
 
@@ -259,8 +309,9 @@ def Panbaidu_pre_upload(path, size, md5_list):
         
 
 if __name__ == '__main__':
-    # Panbaidu_upload()
-    Panbaidu_First_Access_Token()
+    Panbaidu_upload()
+    # Panbaidu_First_Access_Token()
+    # Panbaidu_Refresh_Access_Token()
 
 
 
