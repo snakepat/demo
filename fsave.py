@@ -245,7 +245,7 @@ def Encrypt_Compression():
 #功能：    文件分片,分片为固定大小
 #输入：    需要被分片的文件路径
 #返回：    被分片的子文件路径
-#补充说明：    
+#补充说明：需要修改部分参数——被分片的大小
 def Split_file(file_path):
     current_path = os.path.dirname(file_path)
     # filename = file_path.split(path_separator)[-1:][0]
@@ -409,9 +409,106 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
     return
     
 
+def Onedrive_file_upload():
+
+    return
+
+#第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
+def Onedrive_First_Access_Token():
+    config = configparser.ConfigParser()
+    config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
+    # list = config.sections()
+    # for config_panbaidu in config.sections():
+        # for "is"
+    if(config.getint("config_oneDrive","isfirsttime")):
+        print("请浏览出现的网址，完成OneDrive的授权，并将获得的code值输入:\n")
+        print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
+        code = input("请输入你得到的code值\n")
+
+        params = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
+            'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
+            'redirect_uri': 'oob'
+        }  
+
+        url = access_token_api + urlencode(params)
+        
+        payload = {}
+        headers = {
+        'User-Agent': 'pan.baidu.com'
+        }
+        response = requests.request("GET", url, headers=headers, data = payload)
+        # print(response.text.encode('utf8'))
+        # time.sleep(1)
+        json_resp = json.loads(response.content)
+        # print(json_resp)
+
+        nowtime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        config.set("config_oneDrive","access_token",json_resp['access_token'])
+        config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
+        config.set("config_oneDrive","lastkeytime",nowtime)
+        config.set("config_oneDrive","isfirsttime","0")
+
+    time_str = config.get("config_panbaidu","lastkeytime")
+    lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+    nowkeytime = datetime.datetime.now()
+    days_after_30 = lastkeytime + datetime.timedelta(days=30)
+    if ((days_after_30)<nowkeytime):
+        print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:\n")
+        print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
+        code = input("请输入你得到的code值\n")
+        
+        params = {
+                    'grant_type': 'authorization_code',
+                    'code': code,
+                    'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
+                    'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
+                    'redirect_uri': 'oob'
+                }  
+
+        url = access_token_api + urlencode(params)
+        payload = {}
+        headers = {
+        'User-Agent': 'pan.baidu.com'
+        }
+
+        response = requests.request("GET", url, headers=headers, data = payload)
+        json_resp = json.loads(response.content)
+        # print(json_resp)
+
+        config.set("config_oneDrive","access_token",json_resp['access_token'])
+        config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
+        config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    
+    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+    config.write(o)
+    o.close()
+    return
+
+
+    return
 
 if __name__ == '__main__':
     Panbaidu_file_upload()
+
+    config = configparser.ConfigParser()
+    config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
+
+
+
+    config.set("config_oneDrive","isfirsttime",0)
+    config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
+    config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
+    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+    config.write(o)
+    o.close()
+
 
 
 
@@ -432,3 +529,4 @@ if __name__ == '__main__':
 #部分内容学习参考自如下网站:
 # https://blog.csdn.net/moshlwx/article/details/52694397
 # https://blog.csdn.net/a2824256/article/details/119887954
+# https://blog.csdn.net/weixin_44495599/article/details/129766396?spm=1001.2101.3001.6650.2&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&utm_relevant_index=3
