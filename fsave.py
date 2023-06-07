@@ -23,15 +23,20 @@ else:
 chunk_size = 1024*1024*4 
 file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 # access_token获取地址
-access_token_api = 'https://openapi.baidu.com/oauth/2.0/token?'
+pan_access_token_api = 'https://openapi.baidu.com/oauth/2.0/token?'
 # 预创建文件接口
-precreate_api = 'https://pan.baidu.com/rest/2.0/xpan/file?'
+pan_precreate_api = 'https://pan.baidu.com/rest/2.0/xpan/file?'
 # 分片上传api
-upload_api = 'https://d.pcs.baidu.com/rest/2.0/pcs/superfile2?'
+pan_upload_api = 'https://d.pcs.baidu.com/rest/2.0/pcs/superfile2?'
 # 创建文件api
-create_api = 'https://pan.baidu.com/rest/2.0/xpan/file?'
+pan_create_api = 'https://pan.baidu.com/rest/2.0/xpan/file?'
 
+###############################################################
+##OneDrive相关api
+#access_token获取地址
+Onedrive_authorize_api = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?'
 
+Onedrive_access_token_api = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
 #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
 def Panbaidu_file_upload():
     Panbaidu_First_Access_Token()
@@ -90,23 +95,35 @@ def Panbaidu_file_upload():
 def Panbaidu_First_Access_Token():
     config = configparser.ConfigParser()
     config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
-    # list = config.sections()
-    # for config_panbaidu in config.sections():
-        # for "is"
+    
+    client_id = config.get("config_panbaidu","client_id")
+    client_secret = config.get("config_panbaidu","client_secret")
+
+    params_code = {
+        'response_type': 'code',
+        'client_id':  client_id,
+        # 'client_secret':  client_secret,
+        'redirect_uri': 'oob',
+        'scope': 'basic,netdisk',
+        'device_id': '34097783'
+    }
+
+    code_url = pan_access_token_api + urlencode(params_code)
+
     if(config.getint("config_panbaidu","isfirsttime")):
         print("请浏览出现的网址，完成百度网盘的授权，并将获得的code值输入:\n")
-        print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
+        print(code_url,"\n")
         code = input("请输入你得到的code值\n")
 
         params = {
             'grant_type': 'authorization_code',
             'code': code,
-            'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
-            'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
+            'client_id':  client_id,
+            'client_secret':  client_secret,
             'redirect_uri': 'oob'
         }  
 
-        url = access_token_api + urlencode(params)
+        url = pan_access_token_api + urlencode(params)
         
         payload = {}
         headers = {
@@ -126,23 +143,26 @@ def Panbaidu_First_Access_Token():
         config.set("config_panbaidu","isfirsttime","0")
 
     time_str = config.get("config_panbaidu","lastkeytime")
+    client_id = config.get("config_panbaidu","client_id")
+    client_secret = config.get("config_panbaidu","client_secret")
+
     lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
     nowkeytime = datetime.datetime.now()
     days_after_30 = lastkeytime + datetime.timedelta(days=30)
     if ((days_after_30)<nowkeytime):
         print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:\n")
-        print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
+        print(code_url,"\n")
         code = input("请输入你得到的code值\n")
         
         params = {
                     'grant_type': 'authorization_code',
                     'code': code,
-                    'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
-                    'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
+                    'client_id':  client_id,
+                    'client_secret':  client_secret,
                     'redirect_uri': 'oob'
                 }  
 
-        url = access_token_api + urlencode(params)
+        url = pan_access_token_api + urlencode(params)
         payload = {}
         headers = {
         'User-Agent': 'pan.baidu.com'
@@ -167,6 +187,8 @@ def Panbaidu_Refresh_Access_Token():
     config = configparser.ConfigParser()
     config.read('fsave.ini')
     refresh_token = config.get("config_panbaidu","refresh_token")
+    client_id = config.get("config_panbaidu","client_id")
+    client_secret = config.get("config_panbaidu","client_secret")
 
     payload = {}
     headers = {
@@ -175,11 +197,11 @@ def Panbaidu_Refresh_Access_Token():
     params = {
                     'grant_type': 'refresh_token',
                     'refresh_token': refresh_token,
-                    'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
-                    'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
+                    'client_id':  client_id,
+                    'client_secret':  client_secret,
                 }  
 
-    url = access_token_api + urlencode(params)
+    url = pan_access_token_api + urlencode(params)
 
     response = requests.request("GET", url, headers=headers, data = payload)
     json_resp = json.loads(response.content)
@@ -310,7 +332,7 @@ def Panbaidu_pre_upload(path, size, md5_list):
                     'access_token': access_token,
                 }  
 
-    url = precreate_api + urlencode(params)
+    url = pan_precreate_api + urlencode(params)
     
     md5_list = json.dumps(md5_list)
     payload = {'path': current_path,
@@ -358,7 +380,7 @@ def Panbaidu_upload(filename,path_list,uploadid):
                         'path': current_path
                     }  
 
-        url = upload_api + urlencode(params)
+        url = pan_upload_api + urlencode(params)
         
         payload = {}
         headers = {}
@@ -382,7 +404,7 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
         'method': 'create',
         'access_token': access_token,
     }  
-    url = create_api + urlencode(params)
+    url = pan_create_api + urlencode(params)
 
     #date要求的基本内容
     md5_list = json.dumps(md5_list)
@@ -417,29 +439,43 @@ def Onedrive_file_upload():
 def Onedrive_First_Access_Token():
     config = configparser.ConfigParser()
     config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
-    # list = config.sections()
-    # for config_panbaidu in config.sections():
-        # for "is"
+    
+    client_id = config.get("config_oneDrive","client_id")
+    client_secret = config.get("config_oneDrive","client_secret")
+
+    params_code = {
+    'response_type': 'code',
+    'client_id':  client_id,
+    # 'client_secret':  client_secret,
+    'redirect_uri': 'http://localhost/',
+    'scope': 'files.readwrite.all offline_access'
+    }
+
+    code_url = Onedrive_authorize_api + urlencode(params_code)
+
     if(config.getint("config_oneDrive","isfirsttime")):
         print("请浏览出现的网址，完成OneDrive的授权，并将获得的code值输入:\n")
-        print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
+        
+        print(code_url)
+
         code = input("请输入你得到的code值\n")
 
-        params = {
+        # params = {
+
+        # } 
+
+        url = Onedrive_access_token_api
+        
+        payload = {
             'grant_type': 'authorization_code',
             'code': code,
-            'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
-            'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
-            'redirect_uri': 'oob'
-        }  
-
-        url = access_token_api + urlencode(params)
-        
-        payload = {}
-        headers = {
-        'User-Agent': 'pan.baidu.com'
+            'client_id':  client_id,
+            'client_secret':  client_secret,
+            'redirect_uri': 'http://localhost/'
         }
-        response = requests.request("GET", url, headers=headers, data = payload)
+        headers = {}
+
+        response = requests.request("post", url=url, headers=headers, data = payload)
         # print(response.text.encode('utf8'))
         # time.sleep(1)
         json_resp = json.loads(response.content)
@@ -451,31 +487,28 @@ def Onedrive_First_Access_Token():
         config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
         config.set("config_oneDrive","lastkeytime",nowtime)
         config.set("config_oneDrive","isfirsttime","0")
+        
+    time_str = config.get("config_oneDrive","lastkeytime")
 
-    time_str = config.get("config_panbaidu","lastkeytime")
     lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
     nowkeytime = datetime.datetime.now()
     days_after_30 = lastkeytime + datetime.timedelta(days=30)
     if ((days_after_30)<nowkeytime):
-        print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:\n")
-        print("http://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id=ocME89y3GGQGLLYcpeKrHuvaDGU03yPC&redirect_uri=oob&scope=basic,netdisk&device_id=34097783\n")
-        code = input("请输入你得到的code值\n")
-        
-        params = {
-                    'grant_type': 'authorization_code',
-                    'code': code,
-                    'client_id':  'ocME89y3GGQGLLYcpeKrHuvaDGU03yPC',
-                    'client_secret':  'BDVGeX2wK6jAMRTVyyiNvmftfjKD1FCm',
-                    'redirect_uri': 'oob'
-                }  
+        print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:")
+        print(code_url)
+        code = input("请输入你得到的code值(注意code值从地址栏中获得)\n")
 
-        url = access_token_api + urlencode(params)
-        payload = {}
-        headers = {
-        'User-Agent': 'pan.baidu.com'
+        url = Onedrive_access_token_api 
+        payload = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'client_id':  client_id,
+            'client_secret':  client_secret,
+            'redirect_uri': 'http://localhost/'
         }
+        headers = {}
 
-        response = requests.request("GET", url, headers=headers, data = payload)
+        response = requests.request("post", url = url, headers=headers, data = payload)
         json_resp = json.loads(response.content)
         # print(json_resp)
 
@@ -487,31 +520,20 @@ def Onedrive_First_Access_Token():
     o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
     config.write(o)
     o.close()
-    return
-
 
     return
+
 
 if __name__ == '__main__':
-    Panbaidu_file_upload()
-
-    config = configparser.ConfigParser()
-    config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
+    # Panbaidu_file_upload()
 
 
-
-    config.set("config_oneDrive","isfirsttime",0)
-    config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
-    config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-
-    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
-    config.write(o)
-    o.close()
+    Onedrive_First_Access_Token()
 
 
 
 
+# 0.AUoACcCPoYPLhEeVTq-_o1Ke21IhhoeDx4FIkkAOlxAZWj-JAFw.AgABAAIAAAD--DLA3VO7QrddgJg7WevrAgDs_wUA9P_ZFOX6NBFKV1SN9neMr0RnzqPwShJbaMXw_KJ3U4AZr6Q56coJisSXD3Ffseq0P9sQMQl6RqkCbvX2VUkjK479lEH6M--qq8oVZpZUjs78qQCQe1n_ny17-KjIca1bI6BqfPacTgNhwWNzkvtmYNMPZvFavay6A4fqH2LcFLtN9xLKKYrKxYllroXQPpAYCVugoDu6f8RY-OvIvH32AkeD6rpvjCJPN53-qAfSmCoNz8c4lmKFL_WjaAK1FvXKz5Ow50a0devviTNybVKRZZZXEAXI3j40PdkmWhOhzJSpF7lJCQVIOmmRcFi9ne--sp8B2IwpAacJIdzJkBrmA4lILQ6pzBJuF7GjW3T5YJ4bUsTjbGl7-JOlcHwQmpr0oIHn-F3DG3THADDZPeFusUPa5bTHNa_YStT8q4nsJbs4YMxepX7gStK5775K-k9DRzjdA0R3V7eoCF3qcqvohOusHRXSr4CchummFk4_7oGjxQSLdzOkS1zOwc4X05V9WuPMcDy0p3oB5cu1POxOyXKaLElNGjuTT-s2irVkczeiy8G9ZoiwhfO5rL0s8v0J5K3PHw331qwAXGDLmk9cQXHijuH86Q4OyNXTNwXnThyvDqlnsO37pWIv6yFojQO7BdAL9W7oTCKxmgvqud5-gddfZZtwfYVAjyjtjR3_bPJ0F6k
 
 
 
