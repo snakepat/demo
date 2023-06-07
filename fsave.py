@@ -37,6 +37,10 @@ pan_create_api = 'https://pan.baidu.com/rest/2.0/xpan/file?'
 Onedrive_authorize_api = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?'
 
 Onedrive_access_token_api = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+
+Onedrive_refresh_token_api = 'https://login.live.com/oauth20_token.srf'
+
+
 #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
 def Panbaidu_file_upload():
     Panbaidu_First_Access_Token()
@@ -407,7 +411,7 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
     url = pan_create_api + urlencode(params)
 
     #date要求的基本内容
-    md5_list = json.dumps(md5_list)
+    md5_list = json.dumps(md5_list)#
     default_path = "/apps/fsave"#百度开发平台要求的格式
     path_tmp = filename.replace('\\','/')
     current_path = default_path + path_tmp#在百度文件中的存储模式
@@ -424,7 +428,6 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
     files = []
     response = requests.request("POST",url=url, headers=headers, data = payload, files = files)
     json_resp = json.loads(response.content)
-
 
     print(json_resp)
 
@@ -460,10 +463,6 @@ def Onedrive_First_Access_Token():
 
         code = input("请输入你得到的code值\n")
 
-        # params = {
-
-        # } 
-
         url = Onedrive_access_token_api
         
         payload = {
@@ -481,19 +480,19 @@ def Onedrive_First_Access_Token():
         json_resp = json.loads(response.content)
         # print(json_resp)
 
-        nowtime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
         config.set("config_oneDrive","access_token",json_resp['access_token'])
         config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
-        config.set("config_oneDrive","lastkeytime",nowtime)
+        config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         config.set("config_oneDrive","isfirsttime","0")
+        config.set("config_oneDrive","expires_in",str(json_resp['expires_in']))
         
     time_str = config.get("config_oneDrive","lastkeytime")
 
+    expires_in = config.getint("config_oneDrive","expires_in")
     lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
     nowkeytime = datetime.datetime.now()
-    days_after_30 = lastkeytime + datetime.timedelta(days=30)
-    if ((days_after_30)<nowkeytime):
+    time_after_lastkeytime = lastkeytime + datetime.timedelta(days=60)
+    if ((time_after_lastkeytime)<nowkeytime):
         print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:")
         print(code_url)
         code = input("请输入你得到的code值(注意code值从地址栏中获得)\n")
@@ -510,17 +509,53 @@ def Onedrive_First_Access_Token():
 
         response = requests.request("post", url = url, headers=headers, data = payload)
         json_resp = json.loads(response.content)
-        # print(json_resp)
+        print(json_resp)
 
         config.set("config_oneDrive","access_token",json_resp['access_token'])
         config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
         config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
+        config.set("config_oneDrive","expires_in",str(json_resp['expires_in']))
     
     o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
     config.write(o)
     o.close()
 
+    return
+
+#可以进行修改，错误理解expires_in的意思了,expires_in的意思是该时间内令牌是有效的，超过就要用refresh_token
+#有没有只有超过expires_in时间才能更新
+#刷新获得的Access Token更新并保存到本地文件夹的fsave.ini文件中
+def Onedrive_Refresh_Access_Token():
+    config = configparser.ConfigParser()
+    config.read('fsave.ini')
+    refresh_token = config.get("config_oneDrive","refresh_token")
+    client_id = config.get("config_oneDrive","client_id")
+    client_secret = config.get("config_oneDrive","client_secret")
+    print(refresh_token)
+    payload = {
+        'grant_type': 'refresh_token',
+        'client_id':  client_id,
+        'client_secret':  client_secret,
+        'refresh_token': refresh_token,
+        'redirect_uri': 'http://localhost/'
+    }
+
+    headers = {}
+
+    url = Onedrive_refresh_token_api 
+
+    response = requests.request("post", url, headers=headers, data = payload)
+    json_resp = json.loads(response.content)
+    print(json_resp)
+    
+    config.set("config_oneDrive","access_token",json_resp['access_token'])
+    config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
+    config.set("config_oneDrive","expires_in",str(json_resp['expires_in']))
+    config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+    config.write(o)
+    o.close()
     return
 
 
@@ -529,6 +564,8 @@ if __name__ == '__main__':
 
 
     Onedrive_First_Access_Token()
+
+    Onedrive_Refresh_Access_Token()
 
 
 
