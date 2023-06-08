@@ -8,6 +8,7 @@ import math
 import hashlib
 import configparser    #填写配置文件
 import datetime         #时间计算问题
+import time
 
 
 from urllib.parse import urlencode
@@ -90,100 +91,100 @@ def Panbaidu_file_upload():
     print(json_pre_response)
 
     Panbaidu_upload(filename,slice_filepath_list,json_pre_response['uploadid'])
-    json_create_response = Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
+    Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
 
 
     return
 
 #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
 def Panbaidu_First_Access_Token():
-    config = configparser.ConfigParser()
-    config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
-    
-    client_id = config.get("config_panbaidu","client_id")
-    client_secret = config.get("config_panbaidu","client_secret")
 
-    params_code = {
-        'response_type': 'code',
-        'client_id':  client_id,
-        # 'client_secret':  client_secret,
-        'redirect_uri': 'oob',
-        'scope': 'basic,netdisk',
-        'device_id': '34097783'
-    }
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'wb') as o:
+        config = configparser.ConfigParser()
+        config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
+        config.write(o)
 
-    code_url = pan_access_token_api + urlencode(params_code)
+        client_id = config.get("config_panbaidu","client_id")
+        client_secret = config.get("config_panbaidu","client_secret")
 
-    if(config.getint("config_panbaidu","isfirsttime")):
-        print("请浏览出现的网址，完成百度网盘的授权，并将获得的code值输入:\n")
-        print(code_url,"\n")
-        code = input("请输入你得到的code值\n")
-
-        params = {
-            'grant_type': 'authorization_code',
-            'code': code,
+        params_code = {
+            'response_type': 'code',
             'client_id':  client_id,
-            'client_secret':  client_secret,
-            'redirect_uri': 'oob'
-        }  
-
-        url = pan_access_token_api + urlencode(params)
-        
-        payload = {}
-        headers = {
-        'User-Agent': 'pan.baidu.com'
-        }
-        response = requests.request("GET", url, headers=headers, data = payload)
-        # print(response.text.encode('utf8'))
-        # time.sleep(1)
-        json_resp = json.loads(response.content)
-        # print(json_resp)
-
-        nowtime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        config.set("config_panbaidu","access_token",json_resp['access_token'])
-        config.set("config_panbaidu","refresh_token",json_resp['refresh_token'])
-        config.set("config_panbaidu","lastkeytime",nowtime)
-        config.set("config_panbaidu","isfirsttime","0")
-
-    time_str = config.get("config_panbaidu","lastkeytime")
-    client_id = config.get("config_panbaidu","client_id")
-    client_secret = config.get("config_panbaidu","client_secret")
-
-    lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-    nowkeytime = datetime.datetime.now()
-    days_after_30 = lastkeytime + datetime.timedelta(days=30)
-    if ((days_after_30)<nowkeytime):
-        print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:\n")
-        print(code_url,"\n")
-        code = input("请输入你得到的code值\n")
-        
-        params = {
-                    'grant_type': 'authorization_code',
-                    'code': code,
-                    'client_id':  client_id,
-                    'client_secret':  client_secret,
-                    'redirect_uri': 'oob'
-                }  
-
-        url = pan_access_token_api + urlencode(params)
-        payload = {}
-        headers = {
-        'User-Agent': 'pan.baidu.com'
+            # 'client_secret':  client_secret,
+            'redirect_uri': 'oob',
+            'scope': 'basic,netdisk',
+            'device_id': '34097783'
         }
 
-        response = requests.request("GET", url, headers=headers, data = payload)
-        json_resp = json.loads(response.content)
-        # print(json_resp)
+        code_url = pan_access_token_api + urlencode(params_code)
 
-        config.set("config_panbaidu","access_token",json_resp['access_token'])
-        config.set("config_panbaidu","refresh_token",json_resp['refresh_token'])
-        config.set("config_panbaidu","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        if(config.getint("config_panbaidu","isfirsttime")):
+            print("请浏览出现的网址，完成百度网盘的授权，并将获得的code值输入:\n")
+            print(code_url,"\n")
+            code = input("请输入你得到的code值\n")
 
-    
-    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
-    config.write(o)
-    o.close()
+            params = {
+                'grant_type': 'authorization_code',
+                'code': code,
+                'client_id':  client_id,
+                'client_secret':  client_secret,
+                'redirect_uri': 'oob'
+            }  
+
+            url = pan_access_token_api + urlencode(params)
+            
+            payload = {}
+            headers = {
+            'User-Agent': 'pan.baidu.com'
+            }
+            response = requests.request("GET", url, headers=headers, data = payload,timeout=(10,30))
+            # print(response.text.encode('utf8'))
+            # time.sleep(1)
+            json_resp = json.loads(response.content)
+            # print(json_resp)
+
+            nowtime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            config.set("config_panbaidu","access_token",json_resp['access_token'])
+            config.set("config_panbaidu","refresh_token",json_resp['refresh_token'])
+            config.set("config_panbaidu","lastkeytime",nowtime)
+            config.set("config_panbaidu","isfirsttime","0")
+
+        time_str = config.get("config_panbaidu","lastkeytime")
+        client_id = config.get("config_panbaidu","client_id")
+        client_secret = config.get("config_panbaidu","client_secret")
+
+        lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+        nowkeytime = datetime.datetime.now()
+        days_after_30 = lastkeytime + datetime.timedelta(days=30)
+        if ((days_after_30)<nowkeytime):
+            print("距离上次授权已经超过太长时间，需要重新授权。请浏览出现的网址，并将获得的code值输入:\n")
+            print(code_url,"\n")
+            code = input("请输入你得到的code值\n")
+            
+            params = {
+                        'grant_type': 'authorization_code',
+                        'code': code,
+                        'client_id':  client_id,
+                        'client_secret':  client_secret,
+                        'redirect_uri': 'oob'
+                    }  
+
+            url = pan_access_token_api + urlencode(params)
+            payload = {}
+            headers = {
+            'User-Agent': 'pan.baidu.com'
+            }
+
+            response = requests.request("GET", url, headers=headers, data = payload,timeout=(10,30))
+            json_resp = json.loads(response.content)
+            # print(json_resp)
+
+            config.set("config_panbaidu","access_token",json_resp['access_token'])
+            config.set("config_panbaidu","refresh_token",json_resp['refresh_token'])
+            config.set("config_panbaidu","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
     return
 
 #获得Access Token更新并保存到本地文件夹的fsave.ini文件中
@@ -207,7 +208,7 @@ def Panbaidu_Refresh_Access_Token():
 
     url = pan_access_token_api + urlencode(params)
 
-    response = requests.request("GET", url, headers=headers, data = payload)
+    response = requests.request("GET", url, headers=headers, data = payload,timeout=(10,30))
     json_resp = json.loads(response.content)
 
     config.set("config_panbaidu","access_token",json_resp['access_token'])
@@ -295,7 +296,8 @@ def Split_file(file_path,chunk_size):
             #新建分片文件
             f2 = open(slice_filepath,"wb")
             f2.write(file_chunk_data)      
-            f2.close
+            f2.close()
+            f1.close()
             slice_filepath_list.append(slice_filepath)
         current_chunk = current_chunk + 1
     
@@ -346,7 +348,7 @@ def Panbaidu_pre_upload(path, size, md5_list):
     'autoinit': '1',
     'block_list': md5_list}
 
-    response = requests.request("POST", url, data=payload)
+    response = requests.request("POST", url, data=payload,timeout=(10,30))
     json_resp = json.loads(response.content)
 
     o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
@@ -391,7 +393,7 @@ def Panbaidu_upload(filename,path_list,uploadid):
         files = [
         ('file', open(path_list[i],'rb'))
         ]
-        response = requests.request("POST",url=url, headers=headers, data = payload, files = files)
+        response = requests.request("POST",url=url, headers=headers, data = payload, files = files,timeout=(10,30))
         json_resp = json.loads(response.content)
     
     return 
@@ -426,7 +428,7 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
         }
     headers = {}
     files = []
-    response = requests.request("POST",url=url, headers=headers, data = payload, files = files)
+    response = requests.request("POST",url=url, headers=headers, data = payload, files = files,timeout=(10,30))
     json_resp = json.loads(response.content)
 
     print(json_resp)
@@ -440,10 +442,9 @@ def Onedrive_file_upload():
     # Onedrive_Refresh_Access_Token()
 
     #迭代获取所有子文件并把它们的路径保存到file_dir = []中
-    # deeper_dir()
-    # # print("%s\n",file_dir)
+    deeper_dir()
     # #排除本程序所用脚本文本
-    # del_default_file()
+    del_default_file()
     # # print("%s\n",file_dir)
     
     # path = file_dir[0]
@@ -452,7 +453,7 @@ def Onedrive_file_upload():
     # print(statinfo)
     # file_dir.remove()
     # teststring = "D:\\git\\code\\test\\test\\头像与背景\\头像与背景.zip"
-    teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
+    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
     # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
     # teststring = "/root/temp/2023.tar"
     
@@ -462,23 +463,14 @@ def Onedrive_file_upload():
     # else:
     #     slice_filepath_list = []
     #     slice_filepath_list.append(teststring)
-
     father_path = os.path.dirname(os.path.abspath(__file__))
-    print(father_path)
-    filename = teststring.split(father_path)[-1:][0]
-
-    # # print(slice_filepath_list)
-    # md5_list = []
-    # for filepath in slice_filepath_list:
-    #     value_md5 = get_md5(filepath)
-    #     md5_list.append(value_md5)
-    # # print(md5_list)
-    # size = os.path.getsize(teststring)
-    print(filename)
-    json_pre_response = Onedrive_pre_upload(filename)
-    print(json_pre_response)
-
-    Onedrive_upload(teststring,json_pre_response['uploadUrl'])
+    
+    for i in range(len(file_dir)):
+    
+        filename = file_dir[i].split(father_path)[-1:][0]
+        json_pre_response = Onedrive_pre_upload(filename)
+        Onedrive_upload(file_dir[i],json_pre_response['uploadUrl'])
+        time.sleep(0.5)
     # json_create_response = Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
 
     return
@@ -507,6 +499,7 @@ def Onedrive_pre_upload(path):
                 '@microsoft.graph.conflictBehavior': 'rename',
             },
         }),
+        timeout=(10,30)
     )
 
     json_resp = json.loads(response.content)
@@ -515,25 +508,30 @@ def Onedrive_pre_upload(path):
 
 #上传文件
 #输入：文件的本地目录，上传会话的uploadurl
+#输出：返回响应，用来判断访问情况
 def Onedrive_upload(file,uploadurl):
 
     size = os.path.getsize(file)
     response = requests.put(
-    uploadurl,
-    data=open(file,'rb').read(),
-    headers={
-        'Content-Length': f'{size}',
-        'Content-Range': f'bytes 0-{size - 1}/{size}'
-    })
+        uploadurl,
+        data=open(file,'rb').read(),
+        headers={
+            'Content-Length': f'{size}',
+            'Content-Range': f'bytes 0-{size - 1}/{size}'
+            },
+        timeout=(10,30)
+    )
 
     json_resp = json.loads(response.content)
 
-    print(json_resp)
+    # print(json_resp)
 
     return json_resp
 
 #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
 def Onedrive_First_Access_Token():
+    
+
     config = configparser.ConfigParser()
     config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"))
     
@@ -568,7 +566,7 @@ def Onedrive_First_Access_Token():
         }
         headers = {}
 
-        response = requests.request("post", url=url, headers=headers, data = payload)
+        response = requests.request("post", url=url, headers=headers, data = payload,timeout=(10,30))
         # print(response.text.encode('utf8'))
         # time.sleep(1)
         json_resp = json.loads(response.content)
@@ -606,7 +604,7 @@ def Onedrive_First_Access_Token():
         }
         headers = {}
 
-        response = requests.request("post", url = url, headers=headers, data = payload)
+        response = requests.request("post", url = url, headers=headers, data = payload,timeout=(10,30))
         # if response.status_code == 200:#检查响应状态
         json_resp = json.loads(response.content)
         print(json_resp)
@@ -616,13 +614,11 @@ def Onedrive_First_Access_Token():
         config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         config.set("config_oneDrive","expires_in",str(json_resp['expires_in']))
     
-    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
-    config.write(o)
-    o.close()
+        o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+        config.write(o)
+        o.close()
     
     return 
-
-    
 
 #可以进行修改，错误理解expires_in的意思了,expires_in的意思是该时间内令牌是有效的，超过就要用refresh_token
 #有没有只有超过expires_in时间才能更新
@@ -652,7 +648,7 @@ def Onedrive_Refresh_Access_Token():
 
     url = Onedrive_refresh_token_api 
 
-    response = requests.post(url, data=payload, headers=headers)
+    response = requests.post(url, data=payload, headers=headers,timeout=(10,30))
     json_resp = json.loads(response.content)
     print(json_resp)
     
@@ -671,6 +667,7 @@ if __name__ == '__main__':
     # Panbaidu_file_upload()
 
     Onedrive_file_upload()
+    # Onedrive_Refresh_Access_Token()
 
 
 
