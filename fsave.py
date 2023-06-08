@@ -20,7 +20,10 @@ elif(platform.system()=='Linux'):
 else:
     assert 0, '该系统目前只能在linux和windows下执行'
 
-chunk_size = 1024*1024*4 
+#分片大小
+panbaidu_chunk_size = 1024*1024*4
+Onedrive_chunk_size = 320*1024
+
 file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 # access_token获取地址
 pan_access_token_api = 'https://openapi.baidu.com/oauth/2.0/token?'
@@ -63,8 +66,8 @@ def Panbaidu_file_upload():
     # teststring = "/root/temp/2023.tar"
     
     #根据目标文件的大小选择是否分片
-    if os.path.getsize(teststring) > chunk_size:
-        slice_filepath_list = Split_file(teststring)
+    if os.path.getsize(teststring) > panbaidu_chunk_size:
+        slice_filepath_list = Split_file(teststring,panbaidu_chunk_size)
     else:
         slice_filepath_list = []
         slice_filepath_list.append(teststring)
@@ -78,11 +81,8 @@ def Panbaidu_file_upload():
         value_md5 = get_md5(filepath)
         md5_list.append(value_md5)
         
-
-
     
     # print(md5_list)
-    
     
 
     size = os.path.getsize(teststring)
@@ -272,7 +272,7 @@ def Encrypt_Compression():
 #输入：    需要被分片的文件路径
 #返回：    被分片的子文件路径
 #补充说明：需要修改部分参数——被分片的大小
-def Split_file(file_path):
+def Split_file(file_path,chunk_size):
     current_path = os.path.dirname(file_path)
     # filename = file_path.split(path_separator)[-1:][0]
     filename = file_path.split("/")[-1:][0]
@@ -436,7 +436,101 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
 
 def Onedrive_file_upload():
 
+    Onedrive_First_Access_Token()
+    # Onedrive_Refresh_Access_Token()
+
+    #迭代获取所有子文件并把它们的路径保存到file_dir = []中
+    # deeper_dir()
+    # # print("%s\n",file_dir)
+    # #排除本程序所用脚本文本
+    # del_default_file()
+    # # print("%s\n",file_dir)
+    
+    # path = file_dir[0]
+    # print(path)
+    # statinfo = os.stat(path)
+    # print(statinfo)
+    # file_dir.remove()
+    # teststring = "D:\\git\\code\\test\\test\\头像与背景\\头像与背景.zip"
+    teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
+    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
+    # teststring = "/root/temp/2023.tar"
+    
+    #根据目标文件的大小选择是否分片
+    # if os.path.getsize(teststring) > panbaidu_chunk_size:
+    #     slice_filepath_list = Split_file(teststring,panbaidu_chunk_size)
+    # else:
+    #     slice_filepath_list = []
+    #     slice_filepath_list.append(teststring)
+
+    father_path = os.path.dirname(os.path.abspath(__file__))
+    print(father_path)
+    filename = teststring.split(father_path)[-1:][0]
+
+    # # print(slice_filepath_list)
+    # md5_list = []
+    # for filepath in slice_filepath_list:
+    #     value_md5 = get_md5(filepath)
+    #     md5_list.append(value_md5)
+    # # print(md5_list)
+    # size = os.path.getsize(teststring)
+    print(filename)
+    json_pre_response = Onedrive_pre_upload(filename)
+    print(json_pre_response)
+
+    Onedrive_upload(teststring,json_pre_response['uploadUrl'])
+    # json_create_response = Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
+
     return
+
+
+# 创建上传会话
+def Onedrive_pre_upload(path):
+    
+    config = configparser.ConfigParser()
+    config.read('fsave.ini')
+    
+    default_path = "/fsave"#百度开发平台要求的格式
+    path_tmp = path.replace('\\','/')
+    current_path = default_path + path_tmp
+    access_token = config.get("config_oneDrive","access_token")
+
+    response = requests.post(
+        f'https://graph.microsoft.com/v1.0/me/drive/root:{current_path}:/createUploadSession',
+        headers={
+            'Authorization': 'Bearer ' + access_token,
+            'Content-Type': 'application/json'
+        },
+        data=json.dumps({
+            'item': {
+                #是指如果存在同名文件则为新上传的文件重命名
+                '@microsoft.graph.conflictBehavior': 'rename',
+            },
+        }),
+    )
+
+    json_resp = json.loads(response.content)
+
+    return json_resp
+
+#上传文件
+#输入：文件的本地目录，上传会话的uploadurl
+def Onedrive_upload(file,uploadurl):
+
+    size = os.path.getsize(file)
+    response = requests.put(
+    uploadurl,
+    data=open(file,'rb').read(),
+    headers={
+        'Content-Length': f'{size}',
+        'Content-Range': f'bytes 0-{size - 1}/{size}'
+    })
+
+    json_resp = json.loads(response.content)
+
+    print(json_resp)
+
+    return json_resp
 
 #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
 def Onedrive_First_Access_Token():
@@ -478,17 +572,22 @@ def Onedrive_First_Access_Token():
         # print(response.text.encode('utf8'))
         # time.sleep(1)
         json_resp = json.loads(response.content)
-        # print(json_resp)
+        print(json_resp)
 
         config.set("config_oneDrive","access_token",json_resp['access_token'])
         config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
         config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         config.set("config_oneDrive","isfirsttime","0")
         config.set("config_oneDrive","expires_in",str(json_resp['expires_in']))
+
+        o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+        config.write(o)
+        o.close()
+
+        return json_resp
         
     time_str = config.get("config_oneDrive","lastkeytime")
-
-    expires_in = config.getint("config_oneDrive","expires_in")
+    # expires_in = config.getint("config_oneDrive","expires_in")
     lastkeytime = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
     nowkeytime = datetime.datetime.now()
     time_after_lastkeytime = lastkeytime + datetime.timedelta(days=60)
@@ -508,6 +607,7 @@ def Onedrive_First_Access_Token():
         headers = {}
 
         response = requests.request("post", url = url, headers=headers, data = payload)
+        # if response.status_code == 200:#检查响应状态
         json_resp = json.loads(response.content)
         print(json_resp)
 
@@ -519,8 +619,10 @@ def Onedrive_First_Access_Token():
     o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
     config.write(o)
     o.close()
+    
+    return 
 
-    return
+    
 
 #可以进行修改，错误理解expires_in的意思了,expires_in的意思是该时间内令牌是有效的，超过就要用refresh_token
 #有没有只有超过expires_in时间才能更新
@@ -528,23 +630,29 @@ def Onedrive_First_Access_Token():
 def Onedrive_Refresh_Access_Token():
     config = configparser.ConfigParser()
     config.read('fsave.ini')
+    # refresh_token = json_param["refresh_token"]
     refresh_token = config.get("config_oneDrive","refresh_token")
     client_id = config.get("config_oneDrive","client_id")
     client_secret = config.get("config_oneDrive","client_secret")
+    
     print(refresh_token)
+    
     payload = {
         'grant_type': 'refresh_token',
         'client_id':  client_id,
         'client_secret':  client_secret,
         'refresh_token': refresh_token,
-        'redirect_uri': 'http://localhost/'
+        'redirect_uri': 'http://localhost/',
+        'scope': 'files.readwrite.all offline_access'
     }
 
-    headers = {}
+    headers = {
+    "Content-Type": "application/x-www-form-urlencoded"
+    }
 
     url = Onedrive_refresh_token_api 
 
-    response = requests.request("post", url, headers=headers, data = payload)
+    response = requests.post(url, data=payload, headers=headers)
     json_resp = json.loads(response.content)
     print(json_resp)
     
@@ -562,10 +670,10 @@ def Onedrive_Refresh_Access_Token():
 if __name__ == '__main__':
     # Panbaidu_file_upload()
 
+    Onedrive_file_upload()
 
-    Onedrive_First_Access_Token()
 
-    Onedrive_Refresh_Access_Token()
+
 
 
 
