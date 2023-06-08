@@ -44,6 +44,8 @@ Onedrive_access_token_api = 'https://login.microsoftonline.com/common/oauth2/v2.
 
 Onedrive_refresh_token_api = 'https://login.live.com/oauth20_token.srf'
 
+Onedrive_serviceResourceId_api = 'https://api.office.com/discovery/v2.0/me/services'
+
 
 #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
 def Panbaidu_file_upload():
@@ -219,7 +221,6 @@ def Panbaidu_Refresh_Access_Token():
     config.write(o)
     o.close()
     return
-
 
 #遍历当前文件列表并存贮相关信息
 #   find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
@@ -439,12 +440,13 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
 def Onedrive_file_upload():
 
     Onedrive_First_Access_Token()
+    Onedrive_serviceResourceId_access_token()
     # Onedrive_Refresh_Access_Token()
-
+    
     #迭代获取所有子文件并把它们的路径保存到file_dir = []中
-    deeper_dir()
+    # deeper_dir()
     # #排除本程序所用脚本文本
-    del_default_file()
+    # del_default_file()
     # # print("%s\n",file_dir)
     
     # path = file_dir[0]
@@ -463,14 +465,14 @@ def Onedrive_file_upload():
     # else:
     #     slice_filepath_list = []
     #     slice_filepath_list.append(teststring)
-    father_path = os.path.dirname(os.path.abspath(__file__))
+    # father_path = os.path.dirname(os.path.abspath(__file__))
     
-    for i in range(len(file_dir)):
+    # for i in range(len(file_dir)):
     
-        filename = file_dir[i].split(father_path)[-1:][0]
-        json_pre_response = Onedrive_pre_upload(filename)
-        Onedrive_upload(file_dir[i],json_pre_response['uploadUrl'])
-        time.sleep(0.5)
+    #     filename = file_dir[i].split(father_path)[-1:][0]
+    #     json_pre_response = Onedrive_pre_upload(filename)
+    #     Onedrive_upload(file_dir[i],json_pre_response['uploadUrl'])
+    #     time.sleep(0.3)
     # json_create_response = Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
 
     return
@@ -620,6 +622,36 @@ def Onedrive_First_Access_Token():
     
     return 
 
+#发现 OneDrive for Business 资源 URI
+def Onedrive_serviceResourceId_access_token():
+    config = configparser.ConfigParser()
+    config.read('fsave.ini')
+    # refresh_token = json_param["refresh_token"]
+    access_token = config.get("config_oneDrive","access_token")
+    
+    payload = {}
+
+    headers = {
+    'Authorization': 'Bearer ' + access_token,
+    }
+
+    url = Onedrive_serviceResourceId_api
+
+    response = requests.post(url, data=payload, headers=headers,timeout=(10,30))
+    json_resp = json.loads(response.content)
+    print(json_resp)
+    
+    # config.set("config_oneDrive","access_token",json_resp['access_token'])
+    # config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
+    # config.set("config_oneDrive","expires_in",str(json_resp['expires_in']))
+    config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
+    config.write(o)
+    o.close()
+    return
+
+
 #可以进行修改，错误理解expires_in的意思了,expires_in的意思是该时间内令牌是有效的，超过就要用refresh_token
 #有没有只有超过expires_in时间才能更新
 #刷新获得的Access Token更新并保存到本地文件夹的fsave.ini文件中
@@ -639,6 +671,7 @@ def Onedrive_Refresh_Access_Token():
         'client_secret':  client_secret,
         'refresh_token': refresh_token,
         'redirect_uri': 'http://localhost/',
+        'resource': '',
         'scope': 'files.readwrite.all offline_access'
     }
 
