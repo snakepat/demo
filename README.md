@@ -7,6 +7,7 @@
 4. 可以通过https://graph.microsoft.com/v1.0/me/drive可以知道目标Onedrive是否是onedriveofbusiness
 5. refresh更新的频率
 6. 添加对readme.md是否存在的判断，不然运行可能会判错
+7. 改成成员函数，方便集成
 
 
 

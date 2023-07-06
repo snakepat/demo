@@ -10,7 +10,6 @@ import configparser    #填写配置文件
 import datetime         #时间计算问题
 import time
 
-
 from urllib.parse import urlencode
 import json
 
@@ -472,7 +471,7 @@ def Onedrive_file_upload():
     
         filename = file_dir[i].split(father_path)[-1:][0]
         json_pre_response = Onedrive_pre_upload(filename)
-        json_upload_response = Onedrive_upload(file_dir[i],json_pre_response['uploadUrl'])
+        Onedrive_upload(file_dir[i],json_pre_response['uploadUrl'])
         time.sleep(0.2)
     # print(json_upload_response)
     print("finish")
@@ -502,11 +501,12 @@ def Onedrive_pre_upload(path):
                 '@microsoft.graph.conflictBehavior': 'rename',
             },
         }),
-        # timeout=(10,30)
+
     )
 
     json_resp = json.loads(response.content)
-
+    #testing
+    # print(json_resp)
     return json_resp
 
 #上传文件
@@ -661,7 +661,6 @@ def Onedrive_serviceResourceId_access_token():
     o.close()
     return resource_id
 
-
 #可以进行修改，错误理解expires_in的意思了,expires_in的意思是该时间内令牌是有效的，超过就要用refresh_token
 #有没有只有超过expires_in时间才能更新
 #刷新获得的Access Token更新并保存到本地文件夹的fsave.ini文件中
@@ -708,7 +707,7 @@ def Onedrive_Refresh_Access_Token():
         )
 
     json_resp = json.loads(response.content)
-    print(json_resp)
+    # print(json_resp)
     
     config.set("config_oneDrive","access_token",json_resp['access_token'])
     config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
@@ -730,25 +729,8 @@ if __name__ == '__main__':
 
 
 
-
-
-
-# 0.AUoACcCPoYPLhEeVTq-_o1Ke21IhhoeDx4FIkkAOlxAZWj-JAFw.AgABAAIAAAD--DLA3VO7QrddgJg7WevrAgDs_wUA9P_ZFOX6NBFKV1SN9neMr0RnzqPwShJbaMXw_KJ3U4AZr6Q56coJisSXD3Ffseq0P9sQMQl6RqkCbvX2VUkjK479lEH6M--qq8oVZpZUjs78qQCQe1n_ny17-KjIca1bI6BqfPacTgNhwWNzkvtmYNMPZvFavay6A4fqH2LcFLtN9xLKKYrKxYllroXQPpAYCVugoDu6f8RY-OvIvH32AkeD6rpvjCJPN53-qAfSmCoNz8c4lmKFL_WjaAK1FvXKz5Ow50a0devviTNybVKRZZZXEAXI3j40PdkmWhOhzJSpF7lJCQVIOmmRcFi9ne--sp8B2IwpAacJIdzJkBrmA4lILQ6pzBJuF7GjW3T5YJ4bUsTjbGl7-JOlcHwQmpr0oIHn-F3DG3THADDZPeFusUPa5bTHNa_YStT8q4nsJbs4YMxepX7gStK5775K-k9DRzjdA0R3V7eoCF3qcqvohOusHRXSr4CchummFk4_7oGjxQSLdzOkS1zOwc4X05V9WuPMcDy0p3oB5cu1POxOyXKaLElNGjuTT-s2irVkczeiy8G9ZoiwhfO5rL0s8v0J5K3PHw331qwAXGDLmk9cQXHijuH86Q4OyNXTNwXnThyvDqlnsO37pWIv6yFojQO7BdAL9W7oTCKxmgvqud5-gddfZZtwfYVAjyjtjR3_bPJ0F6k
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #部分内容学习参考自如下网站:
 # https://blog.csdn.net/moshlwx/article/details/52694397
 # https://blog.csdn.net/a2824256/article/details/119887954
 # https://blog.csdn.net/weixin_44495599/article/details/129766396?spm=1001.2101.3001.6650.2&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&utm_relevant_index=3
+# https://blog.csdn.net/MoLeft/article/details/130613761
