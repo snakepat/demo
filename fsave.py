@@ -502,7 +502,7 @@ def Onedrive_pre_upload(path):
                 '@microsoft.graph.conflictBehavior': 'rename',
             },
         }),
-        timeout=(10,30)
+        # timeout=(10,30)
     )
 
     json_resp = json.loads(response.content)
@@ -522,7 +522,7 @@ def Onedrive_upload(file,uploadurl):
             'Content-Length': f'{size}',
             'Content-Range': f'bytes 0-{size - 1}/{size}'
             },
-        timeout=(10,30)
+        # timeout=(10,30)
     )
 
     json_resp = json.loads(response.content)
