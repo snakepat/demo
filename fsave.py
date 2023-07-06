@@ -44,8 +44,10 @@ Onedrive_access_token_api = 'https://login.microsoftonline.com/common/oauth2/v2.
 
 Onedrive_refresh_token_api = 'https://login.live.com/oauth20_token.srf'
 
-Onedrive_serviceResourceId_api = 'https://api.office.com/discovery/v2.0/me/services'
-
+Oofbusiness_refresh_token_api = 'https://login.microsoftonline.com/common/oauth2/token'
+#通过 Microsoft Graph API 获取 OneDrive for Business 终结点 URL的api,现在只能用graph，原有的api可能被抛弃了
+# Onedrive_serviceResourceId_api = 'https://api.office.com/discovery/v2.0/me/services'
+Onedrive_serviceResourceId_api = 'https://graph.microsoft.com/v1.0/me/drive'
 
 #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
 def Panbaidu_file_upload():
@@ -440,13 +442,12 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
 def Onedrive_file_upload():
 
     Onedrive_First_Access_Token()
-    Onedrive_serviceResourceId_access_token()
-    # Onedrive_Refresh_Access_Token()
-    
+    Onedrive_Refresh_Access_Token()
+
     #迭代获取所有子文件并把它们的路径保存到file_dir = []中
-    # deeper_dir()
+    deeper_dir()
     # #排除本程序所用脚本文本
-    # del_default_file()
+    del_default_file()
     # # print("%s\n",file_dir)
     
     # path = file_dir[0]
@@ -465,16 +466,16 @@ def Onedrive_file_upload():
     # else:
     #     slice_filepath_list = []
     #     slice_filepath_list.append(teststring)
-    # father_path = os.path.dirname(os.path.abspath(__file__))
+    father_path = os.path.dirname(os.path.abspath(__file__))
     
-    # for i in range(len(file_dir)):
+    for i in range(len(file_dir)):
     
-    #     filename = file_dir[i].split(father_path)[-1:][0]
-    #     json_pre_response = Onedrive_pre_upload(filename)
-    #     Onedrive_upload(file_dir[i],json_pre_response['uploadUrl'])
-    #     time.sleep(0.3)
-    # json_create_response = Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
-
+        filename = file_dir[i].split(father_path)[-1:][0]
+        json_pre_response = Onedrive_pre_upload(filename)
+        json_upload_response = Onedrive_upload(file_dir[i],json_pre_response['uploadUrl'])
+        time.sleep(0.2)
+    # print(json_upload_response)
+    print("finish")
     return
 
 
@@ -543,7 +544,7 @@ def Onedrive_First_Access_Token():
     params_code = {
     'response_type': 'code',
     'client_id':  client_id,
-    # 'client_secret':  client_secret,
+    'client_secret':  client_secret,
     'redirect_uri': 'http://localhost/',
     'scope': 'files.readwrite.all offline_access'
     }
@@ -556,19 +557,22 @@ def Onedrive_First_Access_Token():
         print(code_url)
 
         code = input("请输入你得到的code值\n")
-
-        url = Onedrive_access_token_api
         
-        payload = {
+        url = Onedrive_access_token_api
+        response = requests.post(
+            url,
+            headers={},
+            data = {
             'grant_type': 'authorization_code',
             'code': code,
             'client_id':  client_id,
             'client_secret':  client_secret,
-            'redirect_uri': 'http://localhost/'
-        }
-        headers = {}
+            'redirect_uri': 'http://localhost/' 
+            },
+            timeout=(10,30)
+        )
 
-        response = requests.request("post", url=url, headers=headers, data = payload,timeout=(10,30))
+        # response = requests.request("post", url=url, headers=headers, data = payload,timeout=(10,30))
         # print(response.text.encode('utf8'))
         # time.sleep(1)
         json_resp = json.loads(response.content)
@@ -579,10 +583,13 @@ def Onedrive_First_Access_Token():
         config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         config.set("config_oneDrive","isfirsttime","0")
         config.set("config_oneDrive","expires_in",str(json_resp['expires_in']))
-
+        
         o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
         config.write(o)
         o.close()
+
+            #获得Onedrive of business的资源url并保存
+        Onedrive_serviceResourceId_access_token()
 
         return json_resp
         
@@ -619,7 +626,7 @@ def Onedrive_First_Access_Token():
         o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
         config.write(o)
         o.close()
-    
+
     return 
 
 #发现 OneDrive for Business 资源 URI
@@ -632,24 +639,27 @@ def Onedrive_serviceResourceId_access_token():
     payload = {}
 
     headers = {
-    'Authorization': 'Bearer ' + access_token,
+        'Authorization': 'Bearer ' + access_token,
+        'Accept': 'application/json'
     }
 
     url = Onedrive_serviceResourceId_api
 
-    response = requests.post(url, data=payload, headers=headers,timeout=(10,30))
+    response = requests.get(url, data=payload, headers=headers,timeout=(10,30))
     json_resp = json.loads(response.content)
+
     print(json_resp)
+    webUrl = json_resp['webUrl']
+    path_useless = "personal/learning_dreamingday_onmicrosoft_com/Documents"
+    resource_id = webUrl.split(path_useless)[0]
     
-    # config.set("config_oneDrive","access_token",json_resp['access_token'])
-    # config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
-    # config.set("config_oneDrive","expires_in",str(json_resp['expires_in']))
-    config.set("config_oneDrive","lastkeytime",datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    config.set("config_oneDrive","resource_id",resource_id)
+    config.set('config_oneDrive','driveType',json_resp['driveType'])
 
     o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
     config.write(o)
     o.close()
-    return
+    return resource_id
 
 
 #可以进行修改，错误理解expires_in的意思了,expires_in的意思是该时间内令牌是有效的，超过就要用refresh_token
@@ -662,26 +672,41 @@ def Onedrive_Refresh_Access_Token():
     refresh_token = config.get("config_oneDrive","refresh_token")
     client_id = config.get("config_oneDrive","client_id")
     client_secret = config.get("config_oneDrive","client_secret")
-    
-    print(refresh_token)
-    
-    payload = {
-        'grant_type': 'refresh_token',
-        'client_id':  client_id,
-        'client_secret':  client_secret,
-        'refresh_token': refresh_token,
-        'redirect_uri': 'http://localhost/',
-        'resource': '',
-        'scope': 'files.readwrite.all offline_access'
-    }
+    driveType = config.get("config_oneDrive","driveType")
+    resource_id = config.get("config_oneDrive","resource_id")
 
-    headers = {
-    "Content-Type": "application/x-www-form-urlencoded"
-    }
+    if driveType == "business":
+        response = requests.post(
+            url = Oofbusiness_refresh_token_api,
+            data = {
+                'grant_type': 'refresh_token',
+                'client_id':  client_id,
+                'client_secret':  client_secret,
+                'refresh_token': refresh_token,
+                'redirect_uri': 'http://localhost/',
+                'resource_id': resource_id,
+                'scope': 'files.readwrite.all offline_access'
+            },
+            headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+            }
+        )
+    else:
+                response = requests.post(
+            url = Onedrive_refresh_token_api,
+            data = {
+                'grant_type': 'refresh_token',
+                'client_id':  client_id,
+                'client_secret':  client_secret,
+                'refresh_token': refresh_token,
+                'redirect_uri': 'http://localhost/',
+                'scope': 'files.readwrite.all offline_access'
+            },
+            headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+            }
+        )
 
-    url = Onedrive_refresh_token_api 
-
-    response = requests.post(url, data=payload, headers=headers,timeout=(10,30))
     json_resp = json.loads(response.content)
     print(json_resp)
     
