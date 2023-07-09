@@ -9,6 +9,7 @@ import hashlib
 import configparser    #填写配置文件
 import datetime         #时间计算问题
 import time
+# from requests_toolbelt import MultipartEncoder 
 
 from urllib.parse import urlencode
 import json
@@ -22,7 +23,7 @@ else:
 
 #分片大小
 panbaidu_chunk_size = 1024*1024*4
-Onedrive_chunk_size = 320*1024
+Onedrive_chunk_size = 1024*1024*5 #320*1024的16倍
 
 file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 # access_token获取地址
@@ -484,7 +485,7 @@ def Onedrive_pre_upload(path):
     config = configparser.ConfigParser()
     config.read('fsave.ini')
     
-    default_path = "/fsave"#百度开发平台要求的格式
+    default_path = "/fsave"#百度开发平台要求的格式,也是本软件的命名方式
     path_tmp = path.replace('\\','/')
     current_path = default_path + path_tmp
     access_token = config.get("config_oneDrive","access_token")
@@ -512,24 +513,55 @@ def Onedrive_pre_upload(path):
 #上传文件
 #输入：文件的本地目录，上传会话的uploadurl
 #输出：返回响应，用来判断访问情况
+#功能，对大于5Mib的文件进行分片，然后
 def Onedrive_upload(file,uploadurl):
+    json_resp_list = []
+    fsize = os.path.getsize(file)
+    
+    current_chunk = 1
+    total_chunk = math.ceil(fsize/Onedrive_chunk_size)
 
-    size = os.path.getsize(file)
-    response = requests.put(
-        uploadurl,
-        data=open(file,'rb').read(),
-        headers={
-            'Content-Length': f'{size}',
-            'Content-Range': f'bytes 0-{size - 1}/{size}'
-            },
-        # timeout=(10,30)
-    )
+    if fsize >= Onedrive_chunk_size:
+        while current_chunk <= total_chunk:
+            start = (current_chunk - 1)*Onedrive_chunk_size
+            end = min(fsize, start+Onedrive_chunk_size)
+            with open(file, 'rb') as f:
+                f.seek(start)
+                file_chunk_data = f.read(end-start)
+                response = requests.put(
+                    uploadurl,
+                    data=file_chunk_data,
+                    headers={
+                        'Content-Length': f'{Onedrive_chunk_size}',
+                        'Content-Range': f'bytes {start}-{end-1}/{fsize}'
+                        },
+                    # timeout=(10,30)
+                )
+                if response.status_code != 202:
+                    print("error accur: OneDrive分片上传错误")
+                    break
+                
+            json_resp = json.loads(response.content)
+            json_resp_list.append(json_resp)
+            current_chunk = current_chunk + 1
+            #test
+            print(json_resp)
+            print("\n")
+    else:
+        response = requests.put(
+                    uploadurl,
+                    data=open(file,'rb').read(),
+                    headers={
+                        'Content-Length': f'{fsize}',
+                        'Content-Range': f'bytes 0-{fsize - 1}/{fsize}'
+                        },
+                    # timeout=(10,30)
+                )
+        json_resp = json.loads(response.content)
+        json_resp_list.append(json_resp)    
 
-    json_resp = json.loads(response.content)
-
-    # print(json_resp)
-
-    return json_resp
+    print(json_resp_list)
+    return json_resp_list
 
 #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
 def Onedrive_First_Access_Token():
@@ -576,7 +608,7 @@ def Onedrive_First_Access_Token():
         # print(response.text.encode('utf8'))
         # time.sleep(1)
         json_resp = json.loads(response.content)
-        print(json_resp)
+        # print(json_resp)
 
         config.set("config_oneDrive","access_token",json_resp['access_token'])
         config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
@@ -616,7 +648,8 @@ def Onedrive_First_Access_Token():
         response = requests.request("post", url = url, headers=headers, data = payload,timeout=(10,30))
         # if response.status_code == 200:#检查响应状态
         json_resp = json.loads(response.content)
-        print(json_resp)
+        # test
+        # print(json_resp)
 
         config.set("config_oneDrive","access_token",json_resp['access_token'])
         config.set("config_oneDrive","refresh_token",json_resp['refresh_token'])
@@ -647,8 +680,10 @@ def Onedrive_serviceResourceId_access_token():
 
     response = requests.get(url, data=payload, headers=headers,timeout=(10,30))
     json_resp = json.loads(response.content)
+    
+    # test
+    # print(json_resp)
 
-    print(json_resp)
     webUrl = json_resp['webUrl']
     path_useless = "personal/learning_dreamingday_onmicrosoft_com/Documents"
     resource_id = webUrl.split(path_useless)[0]
@@ -730,6 +765,7 @@ if __name__ == '__main__':
 
 
 #部分内容学习参考自如下网站:
+# https://www.cnblogs.com/zhuosanxun/p/15100588.html
 # https://blog.csdn.net/moshlwx/article/details/52694397
 # https://blog.csdn.net/a2824256/article/details/119887954
 # https://blog.csdn.net/weixin_44495599/article/details/129766396?spm=1001.2101.3001.6650.2&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&utm_relevant_index=3
