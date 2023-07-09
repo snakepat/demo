@@ -23,7 +23,7 @@ else:
 
 #分片大小
 panbaidu_chunk_size = 1024*1024*4
-Onedrive_chunk_size = 1024*1024*5 #320*1024的16倍
+Onedrive_chunk_size = 1024*1024*50 #320*1024的160倍50Mib,越大上传越快
 
 file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 # access_token获取地址
@@ -249,14 +249,16 @@ def deeper_dir(string='', pathcurrent=os.path.dirname(os.path.abspath(__file__))
             if os.path.isdir(pathson) and not os.path.basename(pathson).startswith('.') :#排除隐藏文件
                 deeper_dir(string, pathson)
 
+
 #排除file_dir中本程序所用文件
 def del_file(string):
     if string in file_dir:
         file_dir.remove(string)
-    else:
-        print( "%s isn't in the file_dir",string)
-        assert 0
+    # else:
+        # print( "%s isn't in the file_dir",string)
+        # assert 0
     return
+
 
 #排除file_dir中本程序所用脚本或文件
 def del_default_file():
