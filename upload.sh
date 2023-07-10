@@ -17,9 +17,11 @@ DEFINITION_PATH() {
     fi
 }
 
+LOG_FILE="test.log"
+
 UPLOAD(){
-    echo "${LOCAL_PATH}"
-    python3 fsave.py "${LOCAL_PATH}"
+    echo "${LOCAL_PATH}" > "$LOG_FILE"
+    python3 upload.py "${LOCAL_PATH}"
 }
 
 CHECK_CORE_FILE "$@"

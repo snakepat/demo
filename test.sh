@@ -7,7 +7,7 @@ c=$3
 # echo "${c}"
 
 ECHO_TEST(){
-    python3 test.py
+    python3 test.py "$@"
 }
 
 ECHO_TEST "$@"
