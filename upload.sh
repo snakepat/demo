@@ -17,10 +17,10 @@ DEFINITION_PATH() {
     fi
 }
 
-LOG_FILE="test.log"
+LOG_FILE="output.log"
 
 UPLOAD(){
-    echo "${LOCAL_PATH}" > "$LOG_FILE"
+    echo "${LOCAL_PATH}" >> "$LOG_FILE"
     python3 upload.py "${LOCAL_PATH}"
 }
 

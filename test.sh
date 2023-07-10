@@ -5,8 +5,10 @@ c=$3
 # echo "${a}"
 # echo "${b}"
 # echo "${c}"
-
+LOG_FILE="output.log"
 ECHO_TEST(){
+    echo "${a}"
+    echo "${b}"
     python3 test.py "$@"
 }
 
