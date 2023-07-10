@@ -7,8 +7,8 @@ c=$3
 # echo "${c}"
 LOG_FILE="output.log"
 ECHO_TEST(){
-    echo "${a}"
-    echo "${b}"
+    echo "${a}" >> "$LOG_FILE"
+    echo "${b}" >> "$LOG_FILE"
     python3 test.py "$@"
 }
 
