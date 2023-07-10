@@ -21,10 +21,7 @@ if __name__ == '__main__':
         #test
         print(os.path.exists(filepath))
         if os.path.exists(filepath):
-            # default_path = "/fsave"#百度开发平台要求的格式,也是本软件的命名方式          
-            # current_path = os.path.join(default_path,filepath)
-            # current_path = current_path.replace('\\','/')
-            # print(current_path)
+
             #如果是绝对路径的话，就把该路径的父路径给替换了
             father_path = os.path.dirname(os.path.abspath(__file__))
             filename =filepath.split(father_path)[-1:][0]
