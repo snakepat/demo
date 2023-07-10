@@ -1,13 +1,10 @@
 ### 还可以改进的地方：
 
 1. 执行linux命令以获得所有文件的操作权-用于删除等操作
-
 2. 对响应的成功与否进行判断。
 3. 设置更新功能，把fsave.ini文件清处理成为初始状态
 4. 可以通过https://graph.microsoft.com/v1.0/me/drive可以知道目标Onedrive是否是onedriveofbusiness
 5. refresh更新的频率
-6. 添加对readme.md是否存在的判断，不然运行可能会判错
-7. 改成成员函数，方便集成
 
 
 
