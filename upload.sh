@@ -18,7 +18,8 @@ DEFINITION_PATH() {
 }
 
 UPLOAD(){
-    python3 fsave.py
+    echo "${LOCAL_PATH}"
+    python3 fsave.py "${LOCAL_PATH}"
 }
 
 CHECK_CORE_FILE "$@"
