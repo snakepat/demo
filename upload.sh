@@ -17,7 +17,7 @@ DEFINITION_PATH() {
     fi
 }
 
-upload(){
+UPLOAD(){
     python3 fsave.py
 }
 
@@ -28,5 +28,6 @@ CHECK_SCRIPT_CONF
 GET_TASK_INFO
 GET_DOWNLOAD_DIR
 CONVERSION_PATH
+UPLOAD
 CLEAN_UP
 exit 0

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*- #考虑到python3默认的编译格式本来就是utf-8,这条多余了
 import requests
 import os
-import sys #用以获取输入参数
 import platform #用以判断当前系统是什么系统
 import math 
 import hashlib
@@ -23,7 +22,7 @@ else:
 
 #分片大小
 panbaidu_chunk_size = 1024*1024*4
-Onedrive_chunk_size = 1024*1024*50 #320*1024的160倍50Mib,越大上传越快
+Onedrive_chunk_size = 1024*1024*25 #320*1024的80倍25Mib,越大上传越快
 
 file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 # access_token获取地址
@@ -488,8 +487,9 @@ def Onedrive_pre_upload(path):
     config.read('fsave.ini')
     
     default_path = "/fsave"#百度开发平台要求的格式,也是本软件的命名方式
-    path_tmp = path.replace('\\','/')
-    current_path = default_path + path_tmp
+    current_path = os.path.join(default_path,path)
+    current_path = current_path.replace('\\','/')#针对windows系统使用的功能
+
     access_token = config.get("config_oneDrive","access_token")
 
     response = requests.post(
@@ -756,12 +756,16 @@ def Onedrive_Refresh_Access_Token():
     o.close()
     return
 
+    # def Onedrive_upload_one_file():
+        
 
-if __name__ == '__main__':
-    # Panbaidu_file_upload()
+    #     return
 
-    Onedrive_file_upload()
-    # Onedrive_Refresh_Access_Token()
+# if __name__ == '__main__':
+#     # Panbaidu_file_upload()
+
+#     Onedrive_file_upload()
+#     # Onedrive_Refresh_Access_Token()
 
 
 
