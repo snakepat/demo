@@ -15,9 +15,9 @@ if __name__ == '__main__':
     fsave.Onedrive_First_Access_Token()
     fsave.Onedrive_Refresh_Access_Token()
 
-    # arguments = sys.argv[1:]
+    arguments = sys.argv[1:]
     # print(arguments)
-    arguments = ["./testing"]
+    # arguments = ["./testing"]
 
     for filepath in arguments:
         #test
