@@ -547,8 +547,8 @@ def Onedrive_upload(file,uploadurl):
             json_resp_list.append(json_resp)
             current_chunk = current_chunk + 1
             #test
-            print(json_resp)
-            print("\n")
+            # print(json_resp)
+            # print("\n")
     else:
         response = requests.put(
                     uploadurl,
@@ -562,7 +562,7 @@ def Onedrive_upload(file,uploadurl):
         json_resp = json.loads(response.content)
         json_resp_list.append(json_resp)    
 
-    print(json_resp_list)
+    # print(json_resp_list)
     return json_resp_list
 
 #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
@@ -761,11 +761,11 @@ def Onedrive_Refresh_Access_Token():
 
     #     return
 
-# if __name__ == '__main__':
-#     # Panbaidu_file_upload()
+if __name__ == '__main__':
+    # Panbaidu_file_upload()
 
-#     Onedrive_file_upload()
-#     # Onedrive_Refresh_Access_Token()
+    Onedrive_file_upload()
+    # Onedrive_Refresh_Access_Token()
 
 
 

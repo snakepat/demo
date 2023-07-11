@@ -19,11 +19,14 @@ DEFINITION_PATH() {
 
 LOG_FILE="output.log"
 
-UPLOAD(){
+UPLOAD_TEST(){
+    echo "hello,world" >> "$LOG_FILE"
     echo "${LOCAL_PATH}" >> "$LOG_FILE"
     python3 upload.py "${LOCAL_PATH}"
 }
 
+echo "try again" >> "$LOG_FILE" 
+UPLOAD_TEST
 CHECK_CORE_FILE "$@"
 CHECK_PARAMETER "$@"
 CHECK_FILE_NUM
@@ -31,6 +34,5 @@ CHECK_SCRIPT_CONF
 GET_TASK_INFO
 GET_DOWNLOAD_DIR
 CONVERSION_PATH
-UPLOAD "$@"
 CLEAN_UP
 exit 0
