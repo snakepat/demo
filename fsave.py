@@ -487,8 +487,8 @@ def Onedrive_pre_upload(path):
     config.read('fsave.ini')
     
     default_path = "/fsave"#百度开发平台要求的格式,也是本软件的命名方式
-    current_path = os.path.join(default_path,path)
-    current_path = current_path.replace('\\','/')#针对windows系统使用的功能
+    path = path.replace('\\','/')#针对windows系统使用的功能
+    current_path = default_path + path
 
     access_token = config.get("config_oneDrive","access_token")
 

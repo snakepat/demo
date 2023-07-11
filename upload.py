@@ -15,18 +15,24 @@ if __name__ == '__main__':
     fsave.Onedrive_First_Access_Token()
     fsave.Onedrive_Refresh_Access_Token()
 
-    arguments = sys.argv[1:]
+    # arguments = sys.argv[1:]
     # print(arguments)
+    arguments = ["./testing"]
 
     for filepath in arguments:
         #test
         # print(os.path.exists(filepath))
         if os.path.exists(filepath):
+            #如果是相对路径，转化为绝对路径
             #如果是绝对路径的话，就把该路径的父路径给替换了,这一步是找到文件路径
+            filepath = os.path.abspath(filepath)
+
             father_path = os.path.dirname(filepath)
 
             if os.path.isdir(filepath):
                 fsave.deeper_dir('',filepath)
+                #test
+                print(fsave.file_dir)
                 for i in range(len(fsave.file_dir)):
                     filename = fsave.file_dir[i].split(father_path)[-1:][0]
                     json_pre_response = fsave.Onedrive_pre_upload(filename)
