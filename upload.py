@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     arguments = sys.argv[1:]
     # print(arguments)
-    # arguments = ["./testing"]
+    # arguments = ["./testing/"]
 
     for filepath in arguments:
         #test

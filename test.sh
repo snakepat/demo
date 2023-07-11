@@ -11,3 +11,9 @@ ECHO_TEST(){
 
 ECHO_TEST "$@"
 exit 0
+
+
+CHECK_CORE_FILE() {
+    CORE_FILE="/root/.aria2c/core"
+    if [[ -e "${CORE_FILE}" ]]; then
+        echo "can find core" >> "$LOG_FILE"
