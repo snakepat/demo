@@ -47,7 +47,8 @@ if __name__ == '__main__':
                 for i in range(len(fsave.file_dir)):
                     filename = fsave.file_dir[i].split(father_path)[-1:][0]
                     json_pre_response = fsave.Onedrive_pre_upload(filename)
-                    fsave.Onedrive_upload(fsave.file_dir[i],json_pre_response['uploadUrl'])
+                    upload_res_json_list = fsave.Onedrive_upload(fsave.file_dir[i],json_pre_response['uploadUrl'])
+                    # if upload_res_json_list[-1]['status']
                     time.sleep(0.2)
                 print("finish")
 

@@ -8,6 +8,7 @@ import hashlib
 import configparser    #填写配置文件
 import datetime         #时间计算问题
 import time
+
 # from requests_toolbelt import MultipartEncoder 
 
 from urllib.parse import urlencode
@@ -448,23 +449,6 @@ def Onedrive_file_upload():
     # #排除本程序所用脚本文本
     del_default_file()
     # # print("%s\n",file_dir)
-    
-    # path = file_dir[0]
-    # print(path)
-    # statinfo = os.stat(path)
-    # print(statinfo)
-    # file_dir.remove()
-    # teststring = "D:\\git\\code\\test\\test\\头像与背景\\头像与背景.zip"
-    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
-    # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
-    # teststring = "/root/temp/2023.tar"
-    
-    #根据目标文件的大小选择是否分片
-    # if os.path.getsize(teststring) > panbaidu_chunk_size:
-    #     slice_filepath_list = Split_file(teststring,panbaidu_chunk_size)
-    # else:
-    #     slice_filepath_list = []
-    #     slice_filepath_list.append(teststring)
     father_path = os.path.dirname(os.path.abspath(__file__))
     
     for i in range(len(file_dir)):
@@ -537,7 +521,7 @@ def Onedrive_upload(file,uploadurl):
                         },
                     # timeout=(10,30)
                 )
-                if response.status_code != 202:
+                if response.status_code == 202:
                     print("error accur: OneDrive分片上传错误")
                     break
                 
