@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-LOG_FILE="output.log"
+LOG_FILE="upload.log"
 
 CHECK_CORE_FILE() {
     CORE_FILE="$(dirname $0)/core"
@@ -27,7 +27,7 @@ UPLOAD_TEST(){
 }
 
 # echo "try again" >> "$LOG_FILE" 
-UPLOAD_TEST
+
 CHECK_CORE_FILE "$@"
 CHECK_PARAMETER "$@"
 CHECK_FILE_NUM
@@ -35,5 +35,6 @@ CHECK_SCRIPT_CONF
 GET_TASK_INFO
 GET_DOWNLOAD_DIR
 CONVERSION_PATH
+UPLOAD_TEST
 CLEAN_UP
 exit 0
