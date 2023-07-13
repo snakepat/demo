@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+LOG_FILE="output.log"
+
 CHECK_CORE_FILE() {
     CORE_FILE="$(dirname $0)/core"
     if [[ -f "${CORE_FILE}" ]]; then
@@ -17,15 +20,13 @@ DEFINITION_PATH() {
     fi
 }
 
-LOG_FILE="output.log"
-
 UPLOAD_TEST(){
-    echo "hello,world" >> "$LOG_FILE"
-    echo "${LOCAL_PATH}" >> "$LOG_FILE"
-    python3 upload.py "${LOCAL_PATH}"
+    # echo "hello,world" >> "$LOG_FILE"
+    # echo "${TASK_PATH}" >> "$LOG_FILE"
+    python3 upload.py "${TASK_PATH}"
 }
 
-echo "try again" >> "$LOG_FILE" 
+# echo "try again" >> "$LOG_FILE" 
 UPLOAD_TEST
 CHECK_CORE_FILE "$@"
 CHECK_PARAMETER "$@"

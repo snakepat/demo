@@ -9,6 +9,7 @@ import fsave
 import sys #用以获取输入参数
 import os
 import time
+import logging
 
 if __name__ == '__main__':
 
@@ -19,9 +20,19 @@ if __name__ == '__main__':
     # print(arguments)
     # arguments = ["./testing/"]
 
+    #配置日志
+    logging.basicConfig(
+        filename='upload.log',  # 日志文件路径
+        level=logging.INFO,  # 设置日志级别为INFO
+        format='%(asctime)s %(levelname)s %(message)s',  # 日志格式
+        datefmt='%Y-%m-%d %H:%M:%S'  # 时间格式
+    )
+
     for filepath in arguments:
         #test
         # print(os.path.exists(filepath))
+        logging.info(f'This filepath is:{filepath}')
+
         if os.path.exists(filepath):
             #如果是相对路径，转化为绝对路径
             #如果是绝对路径的话，就把该路径的父路径给替换了,这一步是找到文件路径

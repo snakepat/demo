@@ -9,6 +9,7 @@ ECHO_TEST(){
     python3 upload.py "$@"
 }
 
+CHECK_CORE_FILE
 ECHO_TEST "$@"
 exit 0
 

@@ -85,9 +85,7 @@ def Panbaidu_file_upload():
         value_md5 = get_md5(filepath)
         md5_list.append(value_md5)
         
-    
     # print(md5_list)
-    
 
     size = os.path.getsize(teststring)
     json_pre_response = Panbaidu_pre_upload(filename, size , md5_list)
