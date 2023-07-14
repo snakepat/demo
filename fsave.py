@@ -51,6 +51,7 @@ Onedrive_serviceResourceId_api = 'https://graph.microsoft.com/v1.0/me/drive'
 
 #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
 def Panbaidu_file_upload():
+
     Panbaidu_First_Access_Token()
     Panbaidu_Refresh_Access_Token()    
     #迭代获取所有子文件并把它们的路径保存到file_dir = []中
@@ -65,10 +66,10 @@ def Panbaidu_file_upload():
     # statinfo = os.stat(path)
     # print(statinfo)
     # file_dir.remove()
-    teststring = "D:\\git\\code\\test\\test\\头像与背景\\头像与背景.zip"
+    # teststring = "D:\\git\\code\\test\\test\\头像与背景\\头像与背景.zip"
     # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\头像与背景.zip"
     # teststring = "E:\\code\\git\\demo\\test\\头像与背景\\FZU0h2laMAIzzF5.jpg"
-    # teststring = "/root/temp/2023.tar"
+    teststring = "/root/temp/2023.tar"
     
     #根据目标文件的大小选择是否分片
     if os.path.getsize(teststring) > panbaidu_chunk_size:
@@ -86,7 +87,7 @@ def Panbaidu_file_upload():
         value_md5 = get_md5(filepath)
         md5_list.append(value_md5)
         
-    # print(md5_list)
+    print(md5_list)
 
     size = os.path.getsize(teststring)
     json_pre_response = Panbaidu_pre_upload(filename, size , md5_list)
@@ -94,7 +95,6 @@ def Panbaidu_file_upload():
 
     Panbaidu_upload(filename,slice_filepath_list,json_pre_response['uploadid'])
     Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
-
 
     return
 
@@ -306,7 +306,6 @@ def Split_file(file_path,chunk_size):
     
     #运行结束后删除源文件/需谨慎，确认无误再删除
     
-
     return slice_filepath_list
 
 #使用hashlib库获得文件的MD5加密信息
@@ -329,10 +328,9 @@ def Panbaidu_pre_upload(path, size, md5_list):
     config = configparser.ConfigParser()
     config.read('fsave.ini')
     
-    default_path = "/apps/fsave"#百度开发平台要求的格式
-    path_tmp = path.replace('\\','/')
-    current_path = default_path + path_tmp
-    print(current_path)
+    default_path = "/fsave"#百度开发平台要求的格式,也是本软件的命名方式
+    path = path.replace('\\','/')#针对windows系统使用的功能
+    current_path = default_path + path
 
     access_token = config.get("config_panbaidu","access_token")
 
@@ -399,7 +397,7 @@ def Panbaidu_upload(filename,path_list,uploadid):
         response = requests.request("POST",url=url, headers=headers, data = payload, files = files,timeout=(10,30))
         json_resp = json.loads(response.content)
     
-    return 
+    return json_resp
         
 #输入：1.目标文件在系统中的相对路径，2.分片前的目标文件的大小 3.按顺序排列的分片文件的md5列表，预上传得到的uploadid
 #输出：响应结果
@@ -436,7 +434,7 @@ def Panbaidu_createfile(filename,size,md5_list,uploadid):
 
     print(json_resp)
 
-    return
+    return json_resp["errno"]
     
 
 def Onedrive_file_upload():
