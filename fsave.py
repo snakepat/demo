@@ -23,7 +23,7 @@ else:
 
 #分片大小
 panbaidu_chunk_size = 1024*1024*4
-Onedrive_chunk_size = 1024*1024*25 #320*1024的80倍25Mib,越大上传越快
+Onedrive_chunk_size = 1024*1024*10 #320*1024的整数倍，官方推荐10M，根据需要更改
 
 file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 # access_token获取地址
@@ -499,9 +499,10 @@ def Onedrive_pre_upload(path):
 #输出：返回响应，用来判断访问情况
 #功能，对大于5Mib的文件进行分片，然后
 def Onedrive_upload(file,uploadurl):
-    json_resp_list = []
+    # json_resp_list = []
     fsize = os.path.getsize(file)
-    
+    status_of_rep = 0
+    file_chunk_data = ""
     current_chunk = 1
     total_chunk = math.ceil(fsize/Onedrive_chunk_size)
 
@@ -512,25 +513,27 @@ def Onedrive_upload(file,uploadurl):
             with open(file, 'rb') as f:
                 f.seek(start)
                 file_chunk_data = f.read(end-start)
-                response = requests.put(
-                    uploadurl,
-                    data=file_chunk_data,
-                    headers={
-                        'Content-Length': f'{Onedrive_chunk_size}',
-                        'Content-Range': f'bytes {start}-{end-1}/{fsize}'
-                        },
-                    # timeout=(10,30)
-                )
-                if response.status_code == 202:
-                    print("error accur: OneDrive分片上传错误")
-                    break
-                
-            json_resp = json.loads(response.content)
-            json_resp_list.append(json_resp)
+            response = requests.put(
+                uploadurl,
+                data=file_chunk_data,
+                headers={
+                    'Content-Length': f'{Onedrive_chunk_size}',
+                    'Content-Range': f'bytes {start}-{end-1}/{fsize}'
+                    },
+                # timeout=(10,30)
+            )
+            # json_resp = json.loads(response.content)
+            # json_resp_list.append(json_resp)
             current_chunk = current_chunk + 1
-            #test
-            # print(json_resp)
-            # print("\n")
+                #test
+            print(response)
+
+            # HTTP 201 Created：该状态码表示服务器已成功处理请求并创建了新的资源
+            if response.status_code == 201:
+                status_of_rep = response.status_code
+            # elif response.status_code == 409:
+            #     status_of_rep = response.status_code
+            
     else:
         response = requests.put(
                     uploadurl,
@@ -541,11 +544,18 @@ def Onedrive_upload(file,uploadurl):
                         },
                     # timeout=(10,30)
                 )
-        json_resp = json.loads(response.content)
-        json_resp_list.append(json_resp)    
+        print(response)
+        if response.status_code == 201:
+            status_of_rep = response.status_code
+        # elif response.status_code == 409:
+        #     status_of_rep = response.status_code
+        
+                
+        # json_resp = json.loads(response.content)
+        # json_resp_list.append(json_resp)    
 
     # print(json_resp_list)
-    return json_resp_list
+    return status_of_rep
 
 #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
 def Onedrive_First_Access_Token():
@@ -564,7 +574,7 @@ def Onedrive_First_Access_Token():
     'redirect_uri': 'http://localhost/',
     'scope': 'files.readwrite.all offline_access'
     }
-
+    
     code_url = Onedrive_authorize_api + urlencode(params_code)
 
     if(config.getint("config_oneDrive","isfirsttime")):
@@ -740,14 +750,13 @@ def Onedrive_Refresh_Access_Token():
 
     # def Onedrive_upload_one_file():
         
+#     return
 
-    #     return
+# if __name__ == '__main__':
+#     # Panbaidu_file_upload()
 
-if __name__ == '__main__':
-    # Panbaidu_file_upload()
-
-    Onedrive_file_upload()
-    # Onedrive_Refresh_Access_Token()
+#     Onedrive_file_upload()
+#     # Onedrive_Refresh_Access_Token()
 
 
 

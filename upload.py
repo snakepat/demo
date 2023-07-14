@@ -31,13 +31,12 @@ if __name__ == '__main__':
     for filepath in arguments:
         #test
         # print(os.path.exists(filepath))
-        logging.info(f'This filepath is:{filepath}')
-
+        logging.info(f'This path is:{filepath}')
+        
         if os.path.exists(filepath):
             #如果是相对路径，转化为绝对路径
             #如果是绝对路径的话，就把该路径的父路径给替换了,这一步是找到文件路径
             filepath = os.path.abspath(filepath)
-
             father_path = os.path.dirname(filepath)
 
             if os.path.isdir(filepath):
@@ -47,9 +46,14 @@ if __name__ == '__main__':
                 for i in range(len(fsave.file_dir)):
                     filename = fsave.file_dir[i].split(father_path)[-1:][0]
                     json_pre_response = fsave.Onedrive_pre_upload(filename)
-                    upload_res_json_list = fsave.Onedrive_upload(fsave.file_dir[i],json_pre_response['uploadUrl'])
-                    # if upload_res_json_list[-1]['status']
-                    time.sleep(0.2)
+                    status_of_upload = fsave.Onedrive_upload(fsave.file_dir[i],json_pre_response['uploadUrl'])
+                    if(status_of_upload == 201):
+                        try:
+                            os.remove(filepath)
+                            # print("File deleted successfully.")
+                        except OSError as e:
+                            logging.error(f"Error deleting file: {e}")
+                    time.sleep(0.1)
                 print("finish")
 
             else:
@@ -58,7 +62,13 @@ if __name__ == '__main__':
 
                 #上传OneDrive的步骤
                 json_pre_response = fsave.Onedrive_pre_upload(filename)
-                fsave.Onedrive_upload(filepath,json_pre_response['uploadUrl'])
+                status_of_upload = fsave.Onedrive_upload(filepath,json_pre_response['uploadUrl'])
+                if(status_of_upload == 201):
+                    try:
+                        os.remove(filepath)
+                        # print("File deleted successfully.")
+                    except OSError as e:
+                        logging.error(f"Error deleting file: {e}")
         else:
-            print("不存在该路径")
+            logging.error("f'This path isn't exsit:{filepath}'")
             assert 0
