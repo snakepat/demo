@@ -16,6 +16,7 @@ import multiprocessing #创建多进程工作，尝试
 def onedrive_process(filename,filepath,result_queue_onedrive):
 
     i = 0
+    status_of_upload = ""
     #上传OneDrive的步骤
     while (status_of_upload != 201) and (i <= 2):
         json_pre_response = fsave.Onedrive_pre_upload(filename)
@@ -25,6 +26,8 @@ def onedrive_process(filename,filepath,result_queue_onedrive):
     
 
 def baidu_process(filename,filepath,result_queue_panbaidu):
+    
+    error_num = ""
     i = 0
     #上传Panbaidu的步骤
     while (error_num != 0) and (i <= 2):
@@ -59,9 +62,9 @@ def baidu_process(filename,filepath,result_queue_panbaidu):
 
 if __name__ == '__main__':
     
-    arguments = sys.argv[1:]
+    # arguments = sys.argv[1:]
     # print(arguments)
-    # arguments = ["喜欢的角色 - 副本"]
+    arguments = ["喜欢的角色 - 副本"]
 
     #配置日志
     logging.basicConfig(
