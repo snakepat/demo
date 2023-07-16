@@ -5,7 +5,7 @@
 #因为会把该文件的绝对路径的上层路径删除来提取类似与相对路径的内容
 #可以做一个调整，自动添加上层路径方便删除
 
-import fsave
+from fsave import fsave as Fsave
 import sys #用以获取输入参数
 import os
 import logging
@@ -13,7 +13,8 @@ import configparser    #填写配置文件
 import multiprocessing #创建多进程工作，尝试
 
 
-def onedrive_process(filename,filepath,result_queue_onedrive):
+
+def onedrive_process(fsave,filename,filepath,result_queue_onedrive):
 
     i = 0
     status_of_upload = ""
@@ -25,7 +26,7 @@ def onedrive_process(filename,filepath,result_queue_onedrive):
     result_queue_onedrive.put(status_of_upload)
     
 
-def baidu_process(filename,filepath,result_queue_panbaidu):
+def baidu_process(fsave,filename,filepath,result_queue_panbaidu):
     
     error_num = ""
     i = 0
@@ -36,7 +37,7 @@ def baidu_process(filename,filepath,result_queue_panbaidu):
         else:
             slice_filepath_list = []
             slice_filepath_list.append(filepath)
-            
+        
         # father_path = os.path.dirname(os.path.abspath(__file__))
         # filename = os.path.basename(filepath)
 
@@ -61,10 +62,10 @@ def baidu_process(filename,filepath,result_queue_panbaidu):
     
 
 if __name__ == '__main__':
-    
-    # arguments = sys.argv[1:]
+    fsave = Fsave()
+    arguments = sys.argv[1:]
     # print(arguments)
-    arguments = ["喜欢的角色 - 副本"]
+    # arguments = ["[Ioroid] The IDOLM@STER Cinderella Girls U149 - 01 [AMZN WEB-DL 1080p AVC E-AC3] - 副本.mkv"]
 
     #配置日志
     logging.basicConfig(
@@ -115,25 +116,24 @@ if __name__ == '__main__':
                     #test
                     print(filename)
                     if(config.getint("config_panbaidu","isupload")==1):
-                        p = multiprocessing.Process(target=baidu_process, args=(filename,file_dir[i],result_queue_panbaidu))
+                        p = multiprocessing.Process(target=baidu_process, args=(fsave,filename,file_dir[i],result_queue_panbaidu))
                         processes.append(p)
                         p.start()
                     if(config.getint("config_oneDrive","isupload")==1):
-                        p = multiprocessing.Process(target=onedrive_process, args=(filename,file_dir[i],result_queue_ondrive))
+                        p = multiprocessing.Process(target=onedrive_process, args=(fsave,filename,file_dir[i],result_queue_ondrive))
                         processes.append(p)
                         p.start()
                     #双进程同时结束
                     for p in processes:
                         p.join()
                     
+                    status_of_upload = ""
+                    value_of_error = ""
+                    #根据上传的返回值判断是否上传成功
                     if(config.getint("config_oneDrive","isupload")==1):
                         status_of_upload = result_queue_ondrive.get()
-                    else:
-                        status_of_upload = ""
                     if(config.getint("config_panbaidu","isupload")==1):
                         value_of_error = result_queue_panbaidu.get()
-                    else:
-                        value_of_error = ""
                     
                     #删除分片文件
                     if (value_of_error == 0):
@@ -160,26 +160,25 @@ if __name__ == '__main__':
             else:
                 filename =filepath.split(father_path)[-1:][0]
                 if(config.getint("config_panbaidu","isupload")==1):
-                        p = multiprocessing.Process(target=baidu_process, args=(filename,filepath,result_queue_panbaidu))
+                        p = multiprocessing.Process(target=baidu_process, args=(fsave,filename,filepath,result_queue_panbaidu))
                         processes.append(p)
                         p.start()
                 if(config.getint("config_oneDrive","isupload")==1):
-                    p = multiprocessing.Process(target=onedrive_process, args=(filename,filepath,result_queue_ondrive))
+                    p = multiprocessing.Process(target=onedrive_process, args=(fsave,filename,filepath,result_queue_ondrive))
                     processes.append(p)
                     p.start()
                 
                 for p in processes:
                     p.join()
                 
+                status_of_upload = ""
+                value_of_error = ""
                 #根据上传的返回值判断是否上传成功
                 if(config.getint("config_oneDrive","isupload")==1):
                     status_of_upload = result_queue_ondrive.get()
-                else:
-                    status_of_upload = ""
                 if(config.getint("config_panbaidu","isupload")==1):
                     value_of_error = result_queue_panbaidu.get()
-                else:
-                    value_of_error = ""
+                    
                 
 
                 #删除分片文件
@@ -198,5 +197,4 @@ if __name__ == '__main__':
                     logging.error(f'the response of OneDrive is:{status_of_upload}')
                     logging.error(f'the response of Panbaidu is:{value_of_error}')
         else:
-            logging.error("f'This path isn't exsit:{filepath}'")
-            assert 0
+            logging.error(f"This path isn't exsit:{filepath}")
