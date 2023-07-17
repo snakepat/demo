@@ -13,7 +13,6 @@ import configparser    #填写配置文件
 import multiprocessing #创建多进程工作，尝试
 
 
-
 def onedrive_process(fsave,filename,filepath,result_queue_onedrive):
 
     i = 0
@@ -65,7 +64,7 @@ if __name__ == '__main__':
     fsave = Fsave()
     arguments = sys.argv[1:]
     # print(arguments)
-    # arguments = ["[Ioroid] The IDOLM@STER Cinderella Girls U149 - 01 [AMZN WEB-DL 1080p AVC E-AC3] - 副本.mkv"]
+    # arguments = ["【CXRAW】【デジモンテイマーズ】【ノンクレジットED「Days-愛情と日常-」】【BDrip】【HEVC Main10P FLAC MKV】 - 副本.mkv"]
 
     #配置日志
     logging.basicConfig(
@@ -183,7 +182,8 @@ if __name__ == '__main__':
 
                 #删除分片文件
                 if (value_of_error == 0):
-                    fsave.del_slice_file(filepath)
+                    if(os.path.getsize(filepath) > fsave.panbaidu_chunk_size):
+                        fsave.del_slice_file(filepath)
                 if((status_of_upload == 201) and (value_of_error == 0)) or \
                     ((status_of_upload == "") and (value_of_error == 0)) or \
                     ((status_of_upload == 201) and (value_of_error == "")):                    

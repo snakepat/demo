@@ -114,7 +114,7 @@ class fsave:
             headers = {
             'User-Agent': 'pan.baidu.com'
             }
-            response = requests.request("GET", url, headers=headers, data = payload,timeout=(20,30))
+            response = requests.get(url, headers=headers, data = payload,timeout=(20,30))
             # print(response.text.encode('utf8'))
             # time.sleep(1)
             json_resp = json.loads(response.content)
@@ -176,7 +176,7 @@ class fsave:
             'User-Agent': 'pan.baidu.com'
             }
 
-            response = requests.request("GET", url, headers=headers, data = payload)
+            response = requests.get( url, headers=headers, data = payload)
             #test
             # print(response.text.encode('utf8'))
             json_resp = json.loads(response.content)
@@ -243,7 +243,7 @@ class fsave:
 
         url = pan_access_token_api + urlencode(params)
 
-        response = requests.request("GET", url, headers=headers, data = payload,timeout=(20,30))
+        response = requests.get( url, headers=headers, data = payload,timeout=(20,30))
         json_resp = json.loads(response.content)
 
         #####################################################################
@@ -413,7 +413,7 @@ class fsave:
         'autoinit': '1',
         'block_list': md5_list}
 
-        response = requests.request("POST", url, data=payload,timeout=(30,60))
+        response = requests.post( url, data=payload,timeout=(30,60))
         json_resp = json.loads(response.content)
 
         o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
@@ -432,6 +432,7 @@ class fsave:
         config = configparser.ConfigParser()
         config.read('fsave.ini')
 
+        print(f"{filename} is uploading,the uploadid is {uploadid}")
 
         access_token = self.panbaidu_access_token
 
@@ -457,7 +458,8 @@ class fsave:
             files = [
             ('file', open(path_list[i],'rb'))
             ]
-            response = requests.request("POST",url=url, headers=headers, data = payload, files = files)
+            print(f"{path_list[i]} is uploading")
+            response = requests.post(url=url, headers=headers, data = payload, files = files)
             json_resp = json.loads(response.content)
             print(json_resp)
         
@@ -494,7 +496,7 @@ class fsave:
             }
         headers = {}
         files = []
-        response = requests.request("POST",url=url, headers=headers, data = payload, files = files)
+        response = requests.post(url=url, headers=headers, data = payload, files = files)
         json_resp = json.loads(response.content)
 
         print(json_resp)
@@ -671,7 +673,7 @@ class fsave:
             o.close()
 
                 #获得Onedrive of business的资源url并保存
-            Onedrive_serviceResourceId_access_token()
+            self.Onedrive_serviceResourceId_access_token()
 
             return json_resp
             

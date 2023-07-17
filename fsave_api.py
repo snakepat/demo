@@ -3,6 +3,9 @@ from flask import Flask, request, jsonify
 import logging
 import mysql.connector
 
+#可以用来查看该api是否成功运行
+#ps -ef | grep python
+
 fsave_test = Flask(__name__)
 
 # 配置日志记录
@@ -20,7 +23,7 @@ def hello():
 
 @fsave_test.route("/api/get_panbaidu_access_token", methods=["POST"])
 def get_panbaidu_access_token():
-    
+
     # 获取请求头中的身份验证信息
     auth_header = request.headers.get("Authorization")
     # 记录客户id
