@@ -19,44 +19,15 @@ def onedrive_process(fsave,filename,filepath,result_queue_onedrive):
     i = 0
     status_of_upload = ""
     #上传OneDrive的步骤
-    while (status_of_upload != 201) and (i <= 2):
-        json_pre_response = fsave.Onedrive_pre_upload(filename)
-        status_of_upload = fsave.Onedrive_upload(filepath,json_pre_response['uploadUrl'])    
-        i = i + 1
+    json_pre_response = fsave.Onedrive_pre_upload(filename)
+    status_of_upload = fsave.Onedrive_upload(filepath,json_pre_response['uploadUrl'])    
     result_queue_onedrive.put(status_of_upload)
     
 
 def baidu_process(fsave,result_queue_panbaidu):
     
     error_num = ""
-    # i = 0
     # #上传Panbaidu的步骤
-    # while (error_num != 0) and (i <= 2):
-    #     if os.path.getsize(filepath) > fsave.panbaidu_chunk_size:
-    #         slice_filepath_list = fsave.Split_file(filepath,fsave.panbaidu_chunk_size)
-    #     else:
-    #         slice_filepath_list = []
-    #         slice_filepath_list.append(filepath)
-        
-    #     # father_path = os.path.dirname(os.path.abspath(__file__))
-    #     # filename = os.path.basename(filepath)
-
-    #     # print(slice_filepath_list)
-    #     md5_list = []
-    #     for filepath in slice_filepath_list:
-    #         value_md5 = fsave.get_md5(filepath)
-    #         md5_list.append(value_md5)
-        
-    #     # print(md5_list)
-
-    #     size = os.path.getsize(filepath)
-    #     json_pre_response = fsave.Panbaidu_pre_upload(filename, size , md5_list)
-    #     # print(json_pre_response)
-
-    #     fsave.Panbaidu_upload(filename,slice_filepath_list,json_pre_response['uploadid'])
-    #     error_num = fsave.Panbaidu_createfile(filename,size,md5_list,json_pre_response['uploadid'])
-        
-    #     i = i + 1
     fsave.Panbaidu_upload()
     error_num = fsave.Panbaidu_createfile()
 
@@ -68,7 +39,7 @@ if __name__ == '__main__':
     arguments = sys.argv[1:]
     # print(arguments)
     # arguments = ["【CXRAW】【デジモンテイマーズ】【ノンクレジットED「Days-愛情と日常-」】【BDrip】【HEVC Main10P FLAC MKV】 - 副本.mkv"]
-    
+
     #配置日志
     logging.basicConfig(
         filename='upload.log',  # 日志文件路径
@@ -88,13 +59,6 @@ if __name__ == '__main__':
         
             config = configparser.ConfigParser()
             config.read("fsave.ini")
-            # #更新access_token
-            # if(config.getint('config_oneDrive','isupload')==1):
-            #     fsave.Onedrive_First_Access_Token()
-            #     fsave.Onedrive_Refresh_Access_Token()
-            # if(config.getint("config_panbaidu","isupload")==1):
-            #     fsave.Panbaidu_First_Access_Token()
-            #     fsave.Panbaidu_Refresh_Access_Token()
             
             #如果是相对路径，先转化为绝对路径
             #如果上传目标是文件夹的话，该步骤可以得到文件夹中每个文件在文件夹中的相对位置。

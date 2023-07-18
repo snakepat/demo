@@ -4,6 +4,7 @@ import atexit
 import base64
 # from requests_toolbelt.multipart.encoder import MultipartEncoder
 import io
+import logging
 import sys
 import requests
 import os
@@ -32,7 +33,13 @@ except ImportError:
 mpsemaphore = mp.Semaphore(1) if mp else None
 # cached.semaphore = mpsemaphore
 
-
+#配置日志
+logging.basicConfig(
+    filename='upload.log',  # 日志文件路径
+    level=logging.INFO,  # 设置日志级别为INFO
+    format='%(asctime)s %(levelname)s %(message)s',  # 日志格式
+    datefmt='%Y-%m-%d %H:%M:%S'  # 时间格式
+)
 
 # file_dir = []#用来存贮这一次启用程序便利文件后得到的文件
 
@@ -68,7 +75,7 @@ change_panbaidu_access_token2_api = "http://23.234.200.170:1314/api/change_panba
 class fsave:
 
     panbaidu_access_token = ""
-    panbaidu_chunk_size = 1024*1024*32#超级会员特权
+    panbaidu_chunk_size = 1024*1024*16#超级会员特权
     #320*1024的整数倍，官方推荐10M，根据需要更改
     Onedrive_chunk_size = 1024*1024*25
     progress_path = os.path.join(os.getcwd(),"progress.json")
@@ -93,7 +100,7 @@ class fsave:
         absfilepath,
         remotefilepath,#针对目标文件在目标文件夹中的相对目录
         retry = 5,#重试次数
-        panbaidu_chunk_size = 1024*1024*32,
+        panbaidu_chunk_size = 1024*1024*16,
         Onedrive_chunk_size = 1024*1024*25):
 
         self.panbaidu_chunk_size = panbaidu_chunk_size
@@ -451,7 +458,7 @@ class fsave:
             progress = jsonload(self.progress_path)
         except Exception as ex:
             # perr("Error loading progress, no resumption.\n{}".format(ex))
-            print("Error loading progress, no resumption.\n{}".format(ex))
+            logging.error("Error loading progress, no resumption.\n{}".format(ex))
         
         progress_slice_md5_list = []#the slice of progress
         if self.filepath in progress:
@@ -477,10 +484,6 @@ class fsave:
             # initial_offset = current_chunk * slice_size
         else:
             self.Panbaidu_pre_upload()
-        # default_path = "/apps/fsave"#百度开发平台要求的格式
-        # path_tmp = self.filename.replace('\\','/')
-        # remote_path = default_path + path_tmp#在百度文件中的存储模式
-        # response = ''
 
         file_chunk_data = ""
         # self.slice_num = math.ceil(self.filesize/self.panbaidu_chunk_size)
@@ -512,24 +515,20 @@ class fsave:
                     files = {
 			        'file': ('file', file_chunk_data, 'application/octet-stream')
                     }
-                    # j = 0
-                    # while j < self._retry:
-                    response = requests.post(url=url, headers=headers, data = payload,files = files)
-                    print(response)
-                    self._update_progress_entry()
-                    json_resp = json.loads(response.content)
-                    # print(json_resp)
+                    j = 0
+                    while j < self._retry:
+                        response = requests.post(url=url, headers=headers, data = payload,files = files)
+                        j = j+1
+                        if response.status_code == 200:
+                            self._update_progress_entry()
+                            break
+                    
+                    # json_resp = json.loads(response.content)
 
                     current_chunk = current_chunk + 1
                     #test
-                    # print(response)
-                    # print(response.content,"\n")
             return response
-                #     # HTTP 201 Created：该状态码表示服务器已成功处理请求并创建了新的资源
-                #     if response.status_code == 201:
-                #         status_of_rep = response.status_code
-                # # elif response.status_code == 409:
-                # #     status_of_rep = response.status_code
+
                 
         else:
             with open(self.filepath, 'rb') as f: 
@@ -550,14 +549,18 @@ class fsave:
                 files = [
                 ('file', open(self.filepath,'rb'))
                 ]
-                response = requests.post(
-                            url,
-                            headers=headers,
-                            data = payload,
-                            files=files
-                            # timeout=(10,30)
-                        )
-                print(response)
+                j = 0
+                while j < self._retry:
+                    response = requests.post(
+                                url,
+                                headers=headers,
+                                data = payload,
+                                files=files
+                                # timeout=(10,30)
+                            )
+                    if response.status_code == 200:
+                        break
+                # print(response)
                 return response
             
     #输入：1.目标文件在系统中的相对路径，2.分片前的目标文件的大小 3.按顺序排列的分片文件的md5列表，预上传得到的uploadid
@@ -649,18 +652,21 @@ class fsave:
                 with open(file, 'rb') as f:
                     f.seek(start)
                     file_chunk_data = f.read(end-start)
-                response = requests.put(
-                    uploadurl,
-                    data=file_chunk_data,
-                    headers={
-                        'Content-Length': f'{self.Onedrive_chunk_size}',
-                        'Content-Range': f'bytes {start}-{end-1}/{fsize}'
-                        },
-                    # timeout=(10,30)
-                )
-                # json_resp = json.loads(response.content)
-                # json_resp_list.append(json_resp)
-                current_chunk = current_chunk + 1
+                i = 0
+                while i < self._retry:
+                    response = requests.put(
+                        uploadurl,
+                        data=file_chunk_data,
+                        headers={
+                            'Content-Length': f'{self.Onedrive_chunk_size}',
+                            'Content-Range': f'bytes {start}-{end-1}/{fsize}'
+                            },
+                        # timeout=(10,30)
+                    )
+                    i = i + 1
+                    if response.status_code == 200 or response.status_code ==201:
+                        current_chunk = current_chunk + 1
+                        break
                 #test
                 print(response)
                 print(response.content,"\n")
@@ -668,6 +674,7 @@ class fsave:
 
                 # HTTP 201 Created：该状态码表示服务器已成功处理请求并创建了新的资源
                 if response.status_code == 201:
+                    logging.info(f"{self.filepath} haved been successfully uploaded to onedrive")
                     status_of_rep = response.status_code
                 # elif response.status_code == 409:
                 #     status_of_rep = response.status_code
@@ -682,28 +689,14 @@ class fsave:
                             },
                         # timeout=(10,30)
                     )
-            print(response)
+            # print(response)
             if response.status_code == 201:
+                logging.info(f"{self.filepath} haved been successfully uploaded to onedrive")
                 status_of_rep = response.status_code
-            # elif response.status_code == 409:
-            #     status_of_rep = response.status_code
-            
-                    
-            # json_resp = json.loads(response.content)
-            # json_resp_list.append(json_resp)    
 
-        # print(json_resp_list)
         return status_of_rep
 
-    # def Onedrive_Re_upload(filepath,uploadurl):
-    #     response = requests.get(
-    #         uploadurl,
-    #         headers={
-    #             'Content-Length': f'{Onedrive_chunk_size}',
-    #             'Content-Range': f'bytes {start}-{end-1}/{fsize}'
-    #             },
-    #         )
-    #     return
+
 
     #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
     def Onedrive_First_Access_Token(self):
@@ -896,7 +889,6 @@ class fsave:
         o.close()
         return
 
-
 #遍历当前文件列表并存贮相关信息
 #   find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
 #   输出相对路径
@@ -922,8 +914,6 @@ def deeper_dir(string='', pathcurrent=os.path.dirname(os.path.abspath(__file__))
             if os.path.isdir(pathson) and not os.path.basename(pathson).startswith('.') :#排除隐藏文件
                 deeper_dir(string, pathson)
     return
-
-
 
 #将数据保存为json
 def jsondump(data, filename, semaphore):
