@@ -7,8 +7,8 @@
 5. 单个文件有大小限制，这个需要注意
 6. 百度网盘refresh一经过更新就会失效，这点与onedrive不同，这里通过服务器api实现相关功能
 7. 记录相关访问ip如果ip过多就那啥
-
-
+8. progress[fullpath] = (self._slice_size, self._slice_md5s)
+9. 
 
 ### 总结一下之后要干啥
 

@@ -1,26 +1,36 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*- #考虑到python3默认的编译格式本来就是utf-8,这条多余了
+import atexit
 import base64
+# from requests_toolbelt.multipart.encoder import MultipartEncoder
+import io
+import sys
 import requests
 import os
-import platform #用以判断当前系统是什么系统
+# import platform #用以判断当前系统是什么系统
 import math 
 import hashlib
 import configparser    #填写配置文件
 import datetime         #时间计算问题
 import shutil           #删除非空文件夹
-
+# from cached import jsonload,jsondump
+# import logging
+import pickle
 # from requests_toolbelt import MultipartEncoder 
 
 from urllib.parse import urlencode
 import json
 
-# if(platform.system()=='Windows'):
-#     path_separator = "\\"    
-# elif(platform.system()=='Linux'):
-#     path_separator = "/"
-# else:
-#     assert 0, '该系统目前只能在linux和windows下执行'
+try:
+	import multiprocessing as mp
+	from multiprocessing import Pool
+except ImportError:
+	mp = None
+	Pool = None
+	# perr("'multiprocess' library is not available, no parallel dl/ul.")
+
+mpsemaphore = mp.Semaphore(1) if mp else None
+# cached.semaphore = mpsemaphore
 
 
 
@@ -58,19 +68,107 @@ change_panbaidu_access_token2_api = "http://23.234.200.170:1314/api/change_panba
 class fsave:
 
     panbaidu_access_token = ""
-    panbaidu_chunk_size = 1024*1024*4
+    panbaidu_chunk_size = 1024*1024*32#超级会员特权
     #320*1024的整数倍，官方推荐10M，根据需要更改
     Onedrive_chunk_size = 1024*1024*25
+    progress_path = os.path.join(os.getcwd(),"progress.json")
+    
 
-    # def __init__(self,panbaidu_access_token,panbaidu_chunk_size = 1024*1024*4,Onedrive_chunk_size = 1024*1024*25):
-    #     self.panbaidu_access_token = panbaidu_access_token
-    #     self.panbaidu_chunk_size = panbaidu_chunk_size
-    #     self.Onedrive_chunk_size = Onedrive_chunk_size
-        #分片大小
+
+    def cleanup(self):
+		# saving is the most important
+		# we save, but don't clean, why?
+		# think about unmount path, moved files,
+		# once we discard the information, they are gone.
+		# so unless the user specifically request a clean,
+		# we don't act too smart.
+		#cached.cleancache()
+        # cached.save_cahe()
+		# self.savesetting()
+		# if we flush() on Ctrl-C, we get
+		# IOError: [Errno 32] Broken pipe
+        sys.stdout.flush()
+
+    def __init__(self,
+        absfilepath,
+        remotefilepath,#针对目标文件在目标文件夹中的相对目录
+        retry = 5,#重试次数
+        panbaidu_chunk_size = 1024*1024*32,
+        Onedrive_chunk_size = 1024*1024*25):
+
+        self.panbaidu_chunk_size = panbaidu_chunk_size
+        self.Onedrive_chunk_size = Onedrive_chunk_size
+        self.filepath = absfilepath
+        self.filesize = os.path.getsize(self.filepath)
+        self.slice_num = 0
+
+        #经过验证，可以放到其他地方，但为了保险起见，还是放到老地方
+        panbaidu_default_path = "/apps/fsave"#百度开发平台要求的格式,也是本软件的命名方式
+        #做判断是否是windows系统，减少运算
+        path = remotefilepath.replace('\\','/')#针对windows系统使用的功能
+        self.panbaidu_remote_path = panbaidu_default_path + path
         
-    # #上传该目录文件下的所有文件到百度网盘/考虑以后还有上传的Onedrive的选项
-    # def Panbaidu_file_upload():
-    #     return
+        self.panbaidu_uploadid = "" 
+        self._retry = retry
+
+        # self.is_panbaidu_upload = 
+        self.slice_num = math.ceil(self.filesize/self.panbaidu_chunk_size)
+        #uploaded slice's md5 value
+        self.uploaded_md5_list = []
+        self.md5_list = []
+        current_chunk = 1
+        file_chunk_data = ""
+        if self.filesize >= self.panbaidu_chunk_size:
+            while current_chunk <= self.slice_num:
+                start = (current_chunk - 1)*self.panbaidu_chunk_size
+                end = min(self.filesize, start + self.panbaidu_chunk_size)
+                with open(self.filepath, 'rb') as f:
+                    f.seek(start)
+                    file_chunk_data = f.read(end-start)
+                    md = hashlib.md5(file_chunk_data)
+                    self.md5_list.append(md.hexdigest())
+                current_chunk = current_chunk + 1
+        else:
+            with open(self.filepath, 'rb') as f:
+                file_chunk_data = f.read(self.panbaidu_chunk_size)
+                md = hashlib.md5(file_chunk_data)
+                self.md5_list.append(md.hexdigest())
+
+        # cached.load_cahe()
+        # in case of abortions, exceptions, etc
+        atexit.register(self.cleanup)
+
+    def _update_progress_entry(self):
+        progress = {}
+
+        try:
+            progress = jsonload(self.progress_path)
+        except Exception as ex:
+            # perr("Error loading the progress for: '{}'.\n{}.".format(fullpath, formatex(ex)))
+            print("Error loading the progress for: '{}'.\n{}.".format(self.filepath, ex))
+        # self.pd("Updating slice upload progress for {}".format(fullpath))
+        print("Updating slice upload progress for {}".format(self.filepath))
+        progress[self.filepath] = (self.panbaidu_chunk_size, 
+                              self.uploaded_md5_list,
+                              self.panbaidu_uploadid)
+        
+        try:
+            jsondump(progress, self.progress_path, mpsemaphore)
+        except Exception as ex:
+            # perr("Error updating the progress for: '{}'.\n{}.".format(fullpath, formatex(ex)))
+            print("Error updating the progress for: '{}'.\n{}.".format(self.filepath, ex))
+
+    def _delete_progress_entry(self):
+        try:
+            progress = jsonload(self.progress_path)
+            # http://stackoverflow.com/questions/11277432/how-to-remove-a-key-from-a-python-dictionary
+            #del progress[fullpath]
+            # self.pd("Removing slice upload progress for {}".format(self.filepath))
+            progress.pop(self.filepath, None)
+            jsondump(progress, self.progress_path, mpsemaphore)
+        except Exception as ex:
+            # perr("Error deleting the progress for: '{}'.\n{}.".format(fullpath, formatex(ex)))
+            print("Error deleting the progress for: '{}'.\n{}.".format(self.filepath, ex))
 
     #第一次获得access—token的内容并保存到本地文件夹的fsave.ini文件中
     def Panbaidu_First_Access_Token(self):
@@ -243,7 +341,7 @@ class fsave:
 
         url = pan_access_token_api + urlencode(params)
 
-        response = requests.get( url, headers=headers, data = payload,timeout=(20,30))
+        response = requests.get( url, headers=headers, data = payload,timeout=(20,60))
         json_resp = json.loads(response.content)
 
         #####################################################################
@@ -272,38 +370,11 @@ class fsave:
         o.close()
         return
 
-    #遍历当前文件列表并存贮相关信息
-    #   find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
-    #   输出相对路径
-    def find_cur(self,string, pathcurrent,file_dir):
-        # 遍历当前文件，找出符合要求的文件，将路径添加到l中
-        for x in os.listdir(pathcurrent):
-            pathson = os.path.join(pathcurrent,x)
-            if os.path.isfile(pathson):
-                if string in x :
-                    file_dir.append(pathson)
-
-    #通过递归实现对当前目录下所有文件的遍历(包括子目录的文件)
-    # deeper_dir(string, p)主要通过递归，在每个子目录中调用find_cur()
-    def deeper_dir(self,string='', pathcurrent=os.path.dirname(os.path.abspath(__file__)),file_dir=[]): # '.'表示当前路径，'..'表示当前路径的父目录
-        
-        self.find_cur(string, pathcurrent,file_dir)
-        
-        for x in os.listdir(pathcurrent):
-            # 关键，将父目录的路径保留下来，保证在完成子目录的查找之后能够返回继续遍历。
-            pathson = pathcurrent 
-            if os.path.isdir(pathson):
-                pathson = os.path.join(pathson, x)
-                if os.path.isdir(pathson) and not os.path.basename(pathson).startswith('.') :#排除隐藏文件
-                    self.deeper_dir(string, pathson)
-
-
     #排除file_dir中本程序所用文件
     def del_file(self,string,file_dir):
         if string in file_dir:
             file_dir.remove(string)
         return
-
 
     #排除file_dir中本程序所用脚本或文件
     def del_default_file(self):
@@ -315,54 +386,8 @@ class fsave:
 
     #文件加密处理，可选服务，针对百度网盘的和谐功能
     def Encrypt_Compression(self):
-
-
         return
 
-    #功能：    文件分片,分片为固定大小
-    #输入：    需要被分片的文件路径
-    #返回：    被分片的子文件路径
-    #补充说明：需要修改部分参数——被分片的大小
-    def Split_file(self,file_path,chunk_size):
-        current_path = os.path.dirname(file_path)
-        #去除路径，取得文件名字
-        filename = os.path.basename(file_path)
-
-        total_size = os.path.getsize(file_path)
-        current_chunk = 0
-        #根据目标大小获得分片数目
-        total_chunk = math.ceil(total_size/chunk_size)
-        #新建文件夹存贮分片文件
-        new_filepath = "{fname}_slice_file_path".format(fname = filename)
-        slice_dir = os.path.join(current_path,new_filepath)
-        # new_filepath = "sub_folder"
-        # if not os.path.exists(slice_dir):
-        #     os.makedirs(slice_dir)
-        os.makedirs(slice_dir, exist_ok=True)
-        #用来存贮分片文件路径
-        slice_filepath_list = []
-        #循环分解出每一个分片
-        while current_chunk < total_chunk:
-            start = current_chunk*chunk_size
-            end = min(total_size, start+chunk_size)
-            with open(file_path, 'rb') as f1:
-                f1.seek(start)
-                file_chunk_data = f1.read(end-start)
-                #分片文件命名规则
-                slice_filename = "{fname}_{i}".format(fname = filename, i = current_chunk)
-                slice_filepath = os.path.join(slice_dir,slice_filename)
-                #新建分片文件
-                f2 = open(slice_filepath,"wb")
-                f2.write(file_chunk_data)      
-                f2.close()
-                f1.close()
-                slice_filepath_list.append(slice_filepath)
-            current_chunk = current_chunk + 1
-        
-        #运行结束后删除源文件/需谨慎，确认无误再删除
-        return slice_filepath_list
-
-    def del_slice_file(self,filepath):
         current_path = os.path.dirname(filepath)
         #去除路径，取得文件名字
         filename = os.path.basename(filepath)
@@ -372,14 +397,14 @@ class fsave:
         
         shutil.rmtree(slice_dir)
 
-    #使用hashlib库获得文件的MD5加密信息
-    def get_md5(self,path):
-        m = hashlib.md5()
-        with open(path, 'rb') as f:
-            for line in f:
-                m.update(line)
-        md5code = m.hexdigest()
-        return md5code
+    # #使用hashlib库获得文件的MD5加密信息
+    # def get_md5(self,path):
+    #     m = hashlib.md5()
+    #     with open(path, 'rb') as f:
+    #         for line in f:
+    #             m.update(line)
+    #     md5code = m.hexdigest()
+    #     return md5code
 
     #预上传
     #输入：1.目标文件在系统中的目录，2.分片前的目标文件的大小 3.按顺序排列的分片文件的md5列表
@@ -387,27 +412,17 @@ class fsave:
     #access_token的获取方式需要修改
     #注意python列表作为json形式的值的时候需要用json.dumps()函数
     #或者 使用'[""]'的形式，注意这是python里少数需要注意单双引号区别的情况
-    def Panbaidu_pre_upload(self,path, size, md5_list):
-
-        config = configparser.ConfigParser()
-        config.read('fsave.ini')
+    def Panbaidu_pre_upload(self):
         
-        default_path = "/fsave"#百度开发平台要求的格式,也是本软件的命名方式
-        path = path.replace('\\','/')#针对windows系统使用的功能
-        current_path = default_path + path
-
-        access_token = self.panbaidu_access_token
-
         params = {
             'method': 'precreate',
-            'access_token': access_token,
+            'access_token': self.panbaidu_access_token,
         }  
-
         url = pan_precreate_api + urlencode(params)
-        
-        md5_list = json.dumps(md5_list)
-        payload = {'path': current_path,
-        'size': size,
+
+        md5_list = json.dumps(self.md5_list)
+        payload = {'path': self.panbaidu_remote_path,
+        'size': self.filesize,
         # 'rtype': '2',
         'isdir': '0',
         'autoinit': '1',
@@ -415,10 +430,7 @@ class fsave:
 
         response = requests.post( url, data=payload,timeout=(30,60))
         json_resp = json.loads(response.content)
-
-        o = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"fsave.ini"), 'w')
-        config.write(o)
-        o.close()
+        self.panbaidu_uploadid = json_resp["uploadid"]
         
         if not int(json_resp['errno']):
             return json_resp
@@ -428,79 +440,157 @@ class fsave:
             
     #输入：目标文件在系统中的相对路径、分片后分片文件路径列表、预上传得到的uploadid
     #无输出
-    def Panbaidu_upload(self,filename,path_list,uploadid):
-        config = configparser.ConfigParser()
-        config.read('fsave.ini')
-
-        print(f"{filename} is uploading,the uploadid is {uploadid}")
-
+    def Panbaidu_upload(self):
+        # config = configparser.ConfigParser()
+        # config.read('fsave.ini')
         access_token = self.panbaidu_access_token
-
-        default_path = "/apps/fsave"#百度开发平台要求的格式
-        path_tmp = filename.replace('\\','/')
-        current_path = default_path + path_tmp#在百度文件中的存储模式
+        progress = {}
+        current_chunk = 0#第current_chunk+1个分块
+        # print(f"{filename} is uploading,the uploadid is {uploadid}")
+        try:
+            progress = jsonload(self.progress_path)
+        except Exception as ex:
+            # perr("Error loading progress, no resumption.\n{}".format(ex))
+            print("Error loading progress, no resumption.\n{}".format(ex))
         
-        for i in range(len(path_list)):
+        progress_slice_md5_list = []#the slice of progress
+        if self.filepath in progress:
+            (slice_size,md5s_list, panbbaidu_upload_api) = progress[self.filepath]
+            self.panbaidu_uploadid = panbbaidu_upload_api#如果是从某个分片上传失败了则重新上传。
+            with io.open(self.filepath, 'rb') as f:
+                # self.pd("Verifying the md5s. Total count = {}".format(len(md5s)))
+                for md in md5s_list:
+                    cslice = f.read(slice_size)
+                    cm =  hashlib.md5(cslice)
+                    if (cm.hexdigest() == md):
+                        print(f"verified {md}")
+                        # self.pd("{} verified".format(md))
+                        # TODO: a more rigorous check would be also verifying
+                        # slices exist at Baidu Yun as well (rapidupload test?)
+                        # but that's a bit complex. for now, we don't check
+                        # this but simply delete the progress entry if later
+                        # we got error combining the slices.
+                        progress_slice_md5_list.append(md)
+                    else:
+                        break
+            current_chunk = len(progress_slice_md5_list)
+            # initial_offset = current_chunk * slice_size
+        else:
+            self.Panbaidu_pre_upload()
+        # default_path = "/apps/fsave"#百度开发平台要求的格式
+        # path_tmp = self.filename.replace('\\','/')
+        # remote_path = default_path + path_tmp#在百度文件中的存储模式
+        # response = ''
 
-            params = {
-                'method': 'upload',
-                'access_token': access_token,
-                'uploadid': uploadid,
-                'type': 'tmpfile',
-                'partseq': i,
-                'path': current_path
-            }  
-
-            url = pan_upload_api + urlencode(params)
-            
-            payload = {}
-            headers = {}
-            files = [
-            ('file', open(path_list[i],'rb'))
-            ]
-            print(f"{path_list[i]} is uploading")
-            response = requests.post(url=url, headers=headers, data = payload, files = files)
-            json_resp = json.loads(response.content)
-            print(json_resp)
+        file_chunk_data = ""
+        # self.slice_num = math.ceil(self.filesize/self.panbaidu_chunk_size)
         
-        return json_resp
+        if self.filesize >= self.panbaidu_chunk_size:
+            while current_chunk < self.slice_num:
+                start = current_chunk*self.panbaidu_chunk_size
+                end = min(self.filesize, start + self.panbaidu_chunk_size)
+                with open(self.filepath, 'rb') as f:
+                    f.seek(start)
+                    file_chunk_data = f.read(end-start)
+                    m = hashlib.md5()
+                    m.update(file_chunk_data)
+                    self.uploaded_md5_list.append(m.hexdigest())
+                    params = {
+                        'method': 'upload',
+                        'access_token': access_token,
+                        'uploadid': self.panbaidu_uploadid,
+                        'type': 'tmpfile',
+                        'partseq': current_chunk,
+                        'path': self.panbaidu_remote_path
+                    }  
+                    url = pan_upload_api + urlencode(params)
+                    payload = {}
+                    headers = {}
+                    # files = [
+                    # ('file', open(filepath,'rb'))
+                    # ]
+                    files = {
+			        'file': ('file', file_chunk_data, 'application/octet-stream')
+                    }
+                    # j = 0
+                    # while j < self._retry:
+                    response = requests.post(url=url, headers=headers, data = payload,files = files)
+                    print(response)
+                    self._update_progress_entry()
+                    json_resp = json.loads(response.content)
+                    # print(json_resp)
+
+                    current_chunk = current_chunk + 1
+                    #test
+                    # print(response)
+                    # print(response.content,"\n")
+            return response
+                #     # HTTP 201 Created：该状态码表示服务器已成功处理请求并创建了新的资源
+                #     if response.status_code == 201:
+                #         status_of_rep = response.status_code
+                # # elif response.status_code == 409:
+                # #     status_of_rep = response.status_code
+                
+        else:
+            with open(self.filepath, 'rb') as f: 
+                buf = f.read(self.filesize)
+                m = hashlib.md5()
+                m.update(buf)
+                params = {
+                        'method': 'upload',
+                        'access_token': access_token,
+                        'uploadid': self.panbaidu_uploadid,
+                        'type': 'tmpfile',
+                        'partseq': current_chunk,
+                        'path': self.panbaidu_remote_path
+                    }  
+                url = pan_upload_api + urlencode(params)
+                headers = {}
+                payload = {}
+                files = [
+                ('file', open(self.filepath,'rb'))
+                ]
+                response = requests.post(
+                            url,
+                            headers=headers,
+                            data = payload,
+                            files=files
+                            # timeout=(10,30)
+                        )
+                print(response)
+                return response
             
     #输入：1.目标文件在系统中的相对路径，2.分片前的目标文件的大小 3.按顺序排列的分片文件的md5列表，预上传得到的uploadid
     #输出：响应结果
-    def Panbaidu_createfile(self,filename,size,md5_list,uploadid):
-
-        config = configparser.ConfigParser()
-        config.read('fsave.ini')
-        access_token = self.panbaidu_access_token
-
+    def Panbaidu_createfile(self):
+        
         #url
         params = {
             'method': 'create',
-            'access_token': access_token,
+            'access_token': self.panbaidu_access_token
         }  
         url = pan_create_api + urlencode(params)
 
         #date要求的基本内容
-        md5_list = json.dumps(md5_list)#
-        default_path = "/apps/fsave"#百度开发平台要求的格式
-        path_tmp = filename.replace('\\','/')
-        current_path = default_path + path_tmp#在百度文件中的存储模式
+        md5_list = json.dumps(self.md5_list)#
+        # default_path = "/apps/fsave"#百度开发平台要求的格式
+        # path_tmp = filename.replace('\\','/')
+        # current_path = default_path + path_tmp#在百度文件中的存储模式
 
         payload = {
-            'path': current_path,
-            'size': size,
+            'path': self.panbaidu_remote_path,
+            'size': self.filesize,
             'rtype': '1',
             'isdir': '0',
-            'uploadid': uploadid,
+            'uploadid': self.panbaidu_uploadid,
             'block_list': md5_list
             }
         headers = {}
-        files = []
-        response = requests.post(url=url, headers=headers, data = payload, files = files)
+        response = requests.post(url=url, headers=headers, data = payload)
         json_resp = json.loads(response.content)
-
-        print(json_resp)
-
+        if json_resp["errno"] == 0:
+            self._delete_progress_entry()
+        # print(json_resp)
         return json_resp["errno"]
         
 
@@ -806,20 +896,71 @@ class fsave:
         o.close()
         return
 
-        # def Onedrive_upload_one_file():
-            
-    #     return
 
-    # if __name__ == '__main__':
-    #     # Panbaidu_file_upload()
+#遍历当前文件列表并存贮相关信息
+#   find_cur(string, path)实现对path目录下文件的查找，列出文件命中含string的文件
+#   输出相对路径
+def find_cur(string, pathcurrent,file_dir):
+    # 遍历当前文件，找出符合要求的文件，将路径添加到l中
+    for x in os.listdir(pathcurrent):
+        pathson = os.path.join(pathcurrent,x)
+        if os.path.isfile(pathson):
+            if string in x :
+                file_dir.append(pathson)
 
-    #     Onedrive_file_upload()
-    #     # Onedrive_Refresh_Access_Token()
+#通过递归实现对当前目录下所有文件的遍历(包括子目录的文件)
+# deeper_dir(string, p)主要通过递归，在每个子目录中调用find_cur()
+def deeper_dir(string='', pathcurrent=os.path.dirname(os.path.abspath(__file__)),file_dir=[]): # '.'表示当前路径，'..'表示当前路径的父目录
+    
+    find_cur(string, pathcurrent,file_dir)
+    
+    for x in os.listdir(pathcurrent):
+        # 关键，将父目录的路径保留下来，保证在完成子目录的查找之后能够返回继续遍历。
+        pathson = pathcurrent 
+        if os.path.isdir(pathson):
+            pathson = os.path.join(pathson, x)
+            if os.path.isdir(pathson) and not os.path.basename(pathson).startswith('.') :#排除隐藏文件
+                deeper_dir(string, pathson)
+    return
 
 
-    #部分内容学习参考自如下网站:
-    # https://www.cnblogs.com/zhuosanxun/p/15100588.html
-    # https://blog.csdn.net/moshlwx/article/details/52694397
-    # https://blog.csdn.net/a2824256/article/details/119887954
-    # https://blog.csdn.net/weixin_44495599/article/details/129766396?spm=1001.2101.3001.6650.2&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&utm_relevant_index=3
-    # https://blog.csdn.net/MoLeft/article/details/130613761
+
+#将数据保存为json
+def jsondump(data, filename, semaphore):
+    if semaphore:
+        with semaphore:
+            with io.open(filename, 'w', encoding = 'utf-8') as f:
+                jsondump_actual(data, f)
+    else:
+        with io.open(filename, 'w', encoding = 'utf-8') as f:
+            jsondump_actual(data, f)
+
+def jsonload(filename):
+	with io.open(filename, 'r', encoding = 'utf-8') as f:
+		return json.load(f)
+
+def jsondump_actual(data, f):
+	# if sys.version_info[0] == 2:
+	# 	f.write(unicodedata(json.dumps(data, ensure_ascii = False, sort_keys = True, indent = 2)))
+	# elif sys.version_info[0] == 3:
+    json.dump(data, f, ensure_ascii = False, sort_keys = True, indent = 2)
+
+
+# def Onedrive_upload_one_file():
+        
+#     return
+
+# if __name__ == '__main__':
+#     # Panbaidu_file_upload()
+
+#     Onedrive_file_upload()
+#     # Onedrive_Refresh_Access_Token()
+
+
+#部分内容学习参考自如下网站:
+# https://www.cnblogs.com/zhuosanxun/p/15100588.html
+# https://blog.csdn.net/moshlwx/article/details/52694397
+# https://blog.csdn.net/a2824256/article/details/119887954
+# https://blog.csdn.net/weixin_44495599/article/details/129766396?spm=1001.2101.3001.6650.2&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EYuanLiJiHua%7EPosition-2-129766396-blog-119505202.235%5Ev36%5Epc_relevant_default_base3&utm_relevant_index=3
+# https://blog.csdn.net/MoLeft/article/details/130613761
+# https://github.com/houtianze/bypy/tree/master
