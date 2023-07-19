@@ -46,9 +46,9 @@ def baidu_process(fsave):
 
 if __name__ == '__main__':
     
-    # arguments = sys.argv[1:]
+    arguments = sys.argv[1:]
     # print(arguments)
-    arguments = ["喜欢的角色 - 副本"]
+    # arguments = ["喜欢的角色 - 副本"]
 
     #配置日志
     logging.basicConfig(
