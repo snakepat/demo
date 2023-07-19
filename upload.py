@@ -14,31 +14,41 @@ import configparser    #填写配置文件
 import multiprocessing #创建多进程工作，尝试
 
 
-def onedrive_process(fsave,filename,filepath,result_queue_onedrive):
+def onedrive_process(fsave,result_queue_onedrive):
 
     i = 0
     status_of_upload = ""
     #上传OneDrive的步骤
-    json_pre_response = fsave.Onedrive_pre_upload(filename)
-    status_of_upload = fsave.Onedrive_upload(filepath,json_pre_response['uploadUrl'])    
+    while status_of_upload != 201:
+        json_pre_response = fsave.Onedrive_pre_upload()
+        status_of_upload = fsave.Onedrive_upload()    
+        if i > 2:
+            break
+        i = i + 1
     result_queue_onedrive.put(status_of_upload)
+    pass
     
 
-def baidu_process(fsave,result_queue_panbaidu):
+def baidu_process(fsave):
     
     error_num = ""
+    i = 0
     # #上传Panbaidu的步骤
-    fsave.Panbaidu_upload()
-    error_num = fsave.Panbaidu_createfile()
+    while error_num != 0:
+        fsave.Panbaidu_upload()
+        error_num = fsave.Panbaidu_createfile()
+        if i > 2:
+            break
+        i = i + 1
+    return error_num
 
-    result_queue_panbaidu.put(error_num)
     
 
 if __name__ == '__main__':
     
-    arguments = sys.argv[1:]
+    # arguments = sys.argv[1:]
     # print(arguments)
-    # arguments = ["【CXRAW】【デジモンテイマーズ】【ノンクレジットED「Days-愛情と日常-」】【BDrip】【HEVC Main10P FLAC MKV】 - 副本.mkv"]
+    arguments = ["喜欢的角色 - 副本"]
 
     #配置日志
     logging.basicConfig(
@@ -89,25 +99,21 @@ if __name__ == '__main__':
                         fsave.Panbaidu_First_Access_Token()
                         fsave.Panbaidu_Refresh_Access_Token()
 
-                    if(config.getint("config_panbaidu","isupload")==1):
-                        p = multiprocessing.Process(target=baidu_process, args=(fsave,result_queue_panbaidu))
-                        processes.append(p)
-                        p.start()
+                    
                     if(config.getint("config_oneDrive","isupload")==1):
-                        p = multiprocessing.Process(target=onedrive_process, args=(fsave,filename,file_dir[i],result_queue_ondrive))
+                        p = multiprocessing.Process(target=onedrive_process, args=(fsave,result_queue_ondrive))
                         processes.append(p)
                         p.start()
+                    if(config.getint("config_panbaidu","isupload")==1):
+                        value_of_error = baidu_process(fsave)
                     #双进程同时结束
                     for p in processes:
                         p.join()
                     
                     status_of_upload = ""
-                    value_of_error = ""
                     #根据上传的返回值判断是否上传成功
                     if(config.getint("config_oneDrive","isupload")==1):
                         status_of_upload = result_queue_ondrive.get()
-                    if(config.getint("config_panbaidu","isupload")==1):
-                        value_of_error = result_queue_panbaidu.get()
                     
                     if((status_of_upload == 201) and (value_of_error == 0)) or \
                         ((status_of_upload == "") and (value_of_error == 0)) or \
@@ -136,25 +142,21 @@ if __name__ == '__main__':
                 if(config.getint("config_panbaidu","isupload")==1):
                     fsave.Panbaidu_First_Access_Token()
                     fsave.Panbaidu_Refresh_Access_Token()
-                if(config.getint("config_panbaidu","isupload")==1):
-                        p = multiprocessing.Process(target=baidu_process, args=(fsave,result_queue_panbaidu))
-                        processes.append(p)
-                        p.start()
+
                 if(config.getint("config_oneDrive","isupload")==1):
-                    p = multiprocessing.Process(target=onedrive_process, args=(fsave,filename,filepath,result_queue_ondrive))
+                    p = multiprocessing.Process(target=onedrive_process, args=(fsave,result_queue_ondrive))
                     processes.append(p)
                     p.start()
+                if(config.getint("config_panbaidu","isupload")==1):
+                    value_of_error = baidu_process(fsave)
                 
                 for p in processes:
                     p.join()
                 
                 status_of_upload = ""
-                value_of_error = ""
                 #根据上传的返回值判断是否上传成功
                 if(config.getint("config_oneDrive","isupload")==1):
                     status_of_upload = result_queue_ondrive.get()
-                if(config.getint("config_panbaidu","isupload")==1):
-                    value_of_error = result_queue_panbaidu.get()
                     
                 
                 if((status_of_upload == 201) and (value_of_error == 0)) or \

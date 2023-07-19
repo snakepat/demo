@@ -78,101 +78,99 @@ class fsave:
     panbaidu_chunk_size = 1024*1024*16#超级会员特权
     #320*1024的整数倍，官方推荐10M，根据需要更改
     Onedrive_chunk_size = 1024*1024*25
-    progress_path = os.path.join(os.getcwd(),"progress.json")
+    panbaidu_progress_path = os.path.join(os.getcwd(),"panbaidu_progress.json")
     
-
-
-    def cleanup(self):
-		# saving is the most important
-		# we save, but don't clean, why?
-		# think about unmount path, moved files,
-		# once we discard the information, they are gone.
-		# so unless the user specifically request a clean,
-		# we don't act too smart.
-		#cached.cleancache()
-        # cached.save_cahe()
-		# self.savesetting()
-		# if we flush() on Ctrl-C, we get
-		# IOError: [Errno 32] Broken pipe
-        sys.stdout.flush()
+    def cleanup(self):#销毁函数，可以在其中把缓存内容紧急保存
+        sys.stdout.flush()#把没输出到控制台的内容输出了
 
     def __init__(self,
         absfilepath,
         remotefilepath,#针对目标文件在目标文件夹中的相对目录
         retry = 5,#重试次数
-        panbaidu_chunk_size = 1024*1024*16,
+        panbaidu_chunk_size = 1024*1024*20,
         Onedrive_chunk_size = 1024*1024*25):
 
         self.panbaidu_chunk_size = panbaidu_chunk_size
         self.Onedrive_chunk_size = Onedrive_chunk_size
         self.filepath = absfilepath
         self.filesize = os.path.getsize(self.filepath)
-        self.slice_num = 0
 
-        #经过验证，可以放到其他地方，但为了保险起见，还是放到老地方
-        panbaidu_default_path = "/apps/fsave"#百度开发平台要求的格式,也是本软件的命名方式
-        #做判断是否是windows系统，减少运算
-        path = remotefilepath.replace('\\','/')#针对windows系统使用的功能
-        self.panbaidu_remote_path = panbaidu_default_path + path
-        
-        self.panbaidu_uploadid = "" 
+        config = configparser.ConfigParser()
+        config.read("fsave.ini")
+        self.is_onedrive_upload = config.getint('config_oneDrive','isupload')
+        self.is_panbaidu_upload = config.getint('config_panbaidu','isupload')
         self._retry = retry
 
-        # self.is_panbaidu_upload = 
-        self.slice_num = math.ceil(self.filesize/self.panbaidu_chunk_size)
-        #uploaded slice's md5 value
-        self.uploaded_md5_list = []
-        self.md5_list = []
-        current_chunk = 1
-        file_chunk_data = ""
-        if self.filesize >= self.panbaidu_chunk_size:
-            while current_chunk <= self.slice_num:
-                start = (current_chunk - 1)*self.panbaidu_chunk_size
-                end = min(self.filesize, start + self.panbaidu_chunk_size)
+        if self.is_panbaidu_upload:
+            self.panbaidu_uploadid = "" 
+            # self.is_panbaidu_upload = 
+            self.panbaidu_slice_num = math.ceil(self.filesize/self.panbaidu_chunk_size)
+            #uploaded slice's md5 value
+            self.panbaidu_uploaded_md5_list = []
+            self.panbaidu_md5_list = []
+            #经过验证，可以放到其他地方，但为了保险起见，还是放到老地方
+            panbaidu_default_path = "/apps/fsave"#百度开发平台要求的格式,也是本软件的命名方式
+            #做判断是否是windows系统，减少运算
+            path = remotefilepath.replace('\\','/')#针对windows系统使用的功能
+            self.panbaidu_remote_path = panbaidu_default_path + path
+
+            current_chunk = 1
+            file_chunk_data = ""
+            if self.filesize >= self.panbaidu_chunk_size:
+                while current_chunk <= self.panbaidu_slice_num:
+                    start = (current_chunk - 1)*self.panbaidu_chunk_size
+                    end = min(self.filesize, start + self.panbaidu_chunk_size)
+                    with open(self.filepath, 'rb') as f:
+                        f.seek(start)
+                        file_chunk_data = f.read(end-start)
+                        md = hashlib.md5(file_chunk_data)
+                        self.panbaidu_md5_list.append(md.hexdigest())
+                    current_chunk = current_chunk + 1
+            else:
                 with open(self.filepath, 'rb') as f:
-                    f.seek(start)
-                    file_chunk_data = f.read(end-start)
+                    file_chunk_data = f.read(self.panbaidu_chunk_size)
                     md = hashlib.md5(file_chunk_data)
-                    self.md5_list.append(md.hexdigest())
-                current_chunk = current_chunk + 1
-        else:
-            with open(self.filepath, 'rb') as f:
-                file_chunk_data = f.read(self.panbaidu_chunk_size)
-                md = hashlib.md5(file_chunk_data)
-                self.md5_list.append(md.hexdigest())
+                    self.panbaidu_md5_list.append(md.hexdigest())
+        
+        if self.is_onedrive_upload:
+            self.onedrive_uploaurl = "" 
+            onedrive_default_path = "/fsave"#百度开发平台要求的格式,也是本软件的命名方式
+            #做判断是否是windows系统，减少运算
+            path = remotefilepath.replace('\\','/')#针对windows系统使用的功能
+            self.onedrive_remote_path = onedrive_default_path + path
 
         # cached.load_cahe()
         # in case of abortions, exceptions, etc
         atexit.register(self.cleanup)
 
-    def _update_progress_entry(self):
+    def panbaidu_update_progress_entry(self):
         progress = {}
 
         try:
-            progress = jsonload(self.progress_path)
+            progress = jsonload(self.panbaidu_progress_path)
         except Exception as ex:
             # perr("Error loading the progress for: '{}'.\n{}.".format(fullpath, formatex(ex)))
             print("Error loading the progress for: '{}'.\n{}.".format(self.filepath, ex))
         # self.pd("Updating slice upload progress for {}".format(fullpath))
         print("Updating slice upload progress for {}".format(self.filepath))
         progress[self.filepath] = (self.panbaidu_chunk_size, 
-                              self.uploaded_md5_list,
+                              self.panbaidu_uploaded_md5_list,
                               self.panbaidu_uploadid)
         
         try:
-            jsondump(progress, self.progress_path, mpsemaphore)
+            jsondump(progress, self.panbaidu_progress_path, mpsemaphore)
         except Exception as ex:
             # perr("Error updating the progress for: '{}'.\n{}.".format(fullpath, formatex(ex)))
             print("Error updating the progress for: '{}'.\n{}.".format(self.filepath, ex))
 
-    def _delete_progress_entry(self):
+    def panbaidu_delete_progress_entry(self):
         try:
-            progress = jsonload(self.progress_path)
+            progress = jsonload(self.panbaidu_progress_path)
             # http://stackoverflow.com/questions/11277432/how-to-remove-a-key-from-a-python-dictionary
             #del progress[fullpath]
             # self.pd("Removing slice upload progress for {}".format(self.filepath))
             progress.pop(self.filepath, None)
-            jsondump(progress, self.progress_path, mpsemaphore)
+            jsondump(progress, self.panbaidu_progress_path, mpsemaphore)
         except Exception as ex:
             # perr("Error deleting the progress for: '{}'.\n{}.".format(fullpath, formatex(ex)))
             print("Error deleting the progress for: '{}'.\n{}.".format(self.filepath, ex))
@@ -395,24 +393,6 @@ class fsave:
     def Encrypt_Compression(self):
         return
 
-        current_path = os.path.dirname(filepath)
-        #去除路径，取得文件名字
-        filename = os.path.basename(filepath)
-        #得到分片文件所在文件夹
-        new_filepath = "{fname}_slice_file_path".format(fname = filename)
-        slice_dir = os.path.join(current_path,new_filepath)
-        
-        shutil.rmtree(slice_dir)
-
-    # #使用hashlib库获得文件的MD5加密信息
-    # def get_md5(self,path):
-    #     m = hashlib.md5()
-    #     with open(path, 'rb') as f:
-    #         for line in f:
-    #             m.update(line)
-    #     md5code = m.hexdigest()
-    #     return md5code
-
     #预上传
     #输入：1.目标文件在系统中的目录，2.分片前的目标文件的大小 3.按顺序排列的分片文件的md5列表
     #输出：返回相应
@@ -427,7 +407,7 @@ class fsave:
         }  
         url = pan_precreate_api + urlencode(params)
 
-        md5_list = json.dumps(self.md5_list)
+        md5_list = json.dumps(self.panbaidu_md5_list)
         payload = {'path': self.panbaidu_remote_path,
         'size': self.filesize,
         # 'rtype': '2',
@@ -455,7 +435,7 @@ class fsave:
         current_chunk = 0#第current_chunk+1个分块
         # print(f"{filename} is uploading,the uploadid is {uploadid}")
         try:
-            progress = jsonload(self.progress_path)
+            progress = jsonload(self.panbaidu_progress_path)
         except Exception as ex:
             # perr("Error loading progress, no resumption.\n{}".format(ex))
             logging.error("Error loading progress, no resumption.\n{}".format(ex))
@@ -477,10 +457,10 @@ class fsave:
                         # but that's a bit complex. for now, we don't check
                         # this but simply delete the progress entry if later
                         # we got error combining the slices.
-                        progress_slice_md5_list.append(md)
+                        self.panbaidu_uploaded_md5_list.append(md)
                     else:
                         break
-            current_chunk = len(progress_slice_md5_list)
+            current_chunk = len(self.panbaidu_uploaded_md5_list)
             # initial_offset = current_chunk * slice_size
         else:
             self.Panbaidu_pre_upload()
@@ -489,7 +469,7 @@ class fsave:
         # self.slice_num = math.ceil(self.filesize/self.panbaidu_chunk_size)
         
         if self.filesize >= self.panbaidu_chunk_size:
-            while current_chunk < self.slice_num:
+            while current_chunk < self.panbaidu_slice_num:
                 start = current_chunk*self.panbaidu_chunk_size
                 end = min(self.filesize, start + self.panbaidu_chunk_size)
                 with open(self.filepath, 'rb') as f:
@@ -497,7 +477,7 @@ class fsave:
                     file_chunk_data = f.read(end-start)
                     m = hashlib.md5()
                     m.update(file_chunk_data)
-                    self.uploaded_md5_list.append(m.hexdigest())
+                    self.panbaidu_uploaded_md5_list.append(m.hexdigest())
                     params = {
                         'method': 'upload',
                         'access_token': access_token,
@@ -520,7 +500,7 @@ class fsave:
                         response = requests.post(url=url, headers=headers, data = payload,files = files)
                         j = j+1
                         if response.status_code == 200:
-                            self._update_progress_entry()
+                            self.panbaidu_update_progress_entry()
                             break
                     
                     # json_resp = json.loads(response.content)
@@ -575,7 +555,7 @@ class fsave:
         url = pan_create_api + urlencode(params)
 
         #date要求的基本内容
-        md5_list = json.dumps(self.md5_list)#
+        md5_list = json.dumps(self.panbaidu_md5_list)#
         # default_path = "/apps/fsave"#百度开发平台要求的格式
         # path_tmp = filename.replace('\\','/')
         # current_path = default_path + path_tmp#在百度文件中的存储模式
@@ -592,7 +572,7 @@ class fsave:
         response = requests.post(url=url, headers=headers, data = payload)
         json_resp = json.loads(response.content)
         if json_resp["errno"] == 0:
-            self._delete_progress_entry()
+            self.panbaidu_delete_progress_entry()
         # print(json_resp)
         return json_resp["errno"]
         
@@ -602,19 +582,16 @@ class fsave:
 
 
     # 创建上传会话
-    def Onedrive_pre_upload(self,path):
+    def Onedrive_pre_upload(self):
         
         config = configparser.ConfigParser()
         config.read('fsave.ini')
         
-        default_path = "/fsave"#百度开发平台要求的格式,也是本软件的命名方式
-        path = path.replace('\\','/')#针对windows系统使用的功能
-        current_path = default_path + path
 
         access_token = config.get("config_oneDrive","access_token")
 
         response = requests.post(
-            f'https://graph.microsoft.com/v1.0/me/drive/root:{current_path}:/createUploadSession',
+            f'https://graph.microsoft.com/v1.0/me/drive/root:{self.onedrive_remote_path}:/createUploadSession',
             headers={
                 'Authorization': 'Bearer ' + access_token,
                 'Content-Type': 'application/json'
@@ -629,6 +606,7 @@ class fsave:
         )
 
         json_resp = json.loads(response.content)
+        self.onedrive_uploaurl = json_resp["uploadUrl"]
         #testing
         # print(json_resp)
         return json_resp
@@ -637,34 +615,34 @@ class fsave:
     #输入：文件的本地目录，上传会话的uploadurl
     #输出：返回响应，用来判断访问情况
     #功能，对大于5Mib的文件进行分片，然后
-    def Onedrive_upload(self,file,uploadurl):
+    def Onedrive_upload(self):
         # json_resp_list = []
-        fsize = os.path.getsize(file)
+
         status_of_rep = 0
         file_chunk_data = ""
         current_chunk = 1
-        total_chunk = math.ceil(fsize/self.Onedrive_chunk_size)
+        total_chunk = math.ceil(self.filesize/self.Onedrive_chunk_size)
 
-        if fsize >= self.Onedrive_chunk_size:
+        if self.filesize >= self.Onedrive_chunk_size:
             while current_chunk <= total_chunk:
                 start = (current_chunk - 1)*self.Onedrive_chunk_size
-                end = min(fsize, start+self.Onedrive_chunk_size)
-                with open(file, 'rb') as f:
+                end = min(self.filesize, start+self.Onedrive_chunk_size)
+                with open(self.filepath, 'rb') as f:
                     f.seek(start)
                     file_chunk_data = f.read(end-start)
                 i = 0
                 while i < self._retry:
                     response = requests.put(
-                        uploadurl,
+                        self.onedrive_uploaurl,
                         data=file_chunk_data,
                         headers={
                             'Content-Length': f'{self.Onedrive_chunk_size}',
-                            'Content-Range': f'bytes {start}-{end-1}/{fsize}'
+                            'Content-Range': f'bytes {start}-{end-1}/{self.filesize}'
                             },
                         # timeout=(10,30)
                     )
                     i = i + 1
-                    if response.status_code == 200 or response.status_code ==201:
+                    if response.status_code == 202 or response.status_code ==201:
                         current_chunk = current_chunk + 1
                         break
                 #test
@@ -681,11 +659,11 @@ class fsave:
                 
         else:
             response = requests.put(
-                        uploadurl,
-                        data=open(file,'rb').read(),
+                        self.onedrive_uploaurl,
+                        data=open(self.filepath,'rb').read(),
                         headers={
-                            'Content-Length': f'{fsize}',
-                            'Content-Range': f'bytes 0-{fsize - 1}/{fsize}'
+                            'Content-Length': f'{self.filesize}',
+                            'Content-Range': f'bytes 0-{self.filesize - 1}/{self.filesize}'
                             },
                         # timeout=(10,30)
                     )
