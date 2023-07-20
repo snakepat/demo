@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*- #考虑到python3默认的编译格式本来就是utf-8,这条多余了`
+# -*- coding: utf-8 -*- 
+#考虑到python3默认的编译格式本来就是utf-8,这条多余了`
 
 #该程序比较适用于移动本程序所在文件目录的文件，
 #因为会把该文件的绝对路径的上层路径删除来提取类似与相对路径的内容
@@ -104,6 +105,7 @@ if __name__ == '__main__':
                         p = multiprocessing.Process(target=onedrive_process, args=(fsave,result_queue_ondrive))
                         processes.append(p)
                         p.start()
+                    value_of_error = ""
                     if(config.getint("config_panbaidu","isupload")==1):
                         value_of_error = baidu_process(fsave)
                     #双进程同时结束
@@ -147,6 +149,7 @@ if __name__ == '__main__':
                     p = multiprocessing.Process(target=onedrive_process, args=(fsave,result_queue_ondrive))
                     processes.append(p)
                     p.start()
+                value_of_error = ""
                 if(config.getint("config_panbaidu","isupload")==1):
                     value_of_error = baidu_process(fsave)
                 

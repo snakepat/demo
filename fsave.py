@@ -6,6 +6,7 @@ import base64
 import io
 import logging
 import sys
+import time
 import requests
 import os
 # import platform #用以判断当前系统是什么系统
@@ -75,7 +76,7 @@ change_panbaidu_access_token2_api = "http://23.234.200.170:1314/api/change_panba
 class fsave:
 
     panbaidu_access_token = ""
-    panbaidu_chunk_size = 1024*1024*16#超级会员特权
+    panbaidu_chunk_size = 1024*1024*4#超级会员特权
     #320*1024的整数倍，官方推荐10M，根据需要更改
     Onedrive_chunk_size = 1024*1024*25
     panbaidu_progress_path = os.path.join(os.getcwd(),"panbaidu_progress.json")
@@ -87,7 +88,7 @@ class fsave:
         absfilepath,
         remotefilepath,#针对目标文件在目标文件夹中的相对目录
         retry = 5,#重试次数
-        panbaidu_chunk_size = 1024*1024*20,
+        panbaidu_chunk_size = 1024*1024*4,
         Onedrive_chunk_size = 1024*1024*25):
 
         self.panbaidu_chunk_size = panbaidu_chunk_size
@@ -347,7 +348,9 @@ class fsave:
         url = pan_access_token_api + urlencode(params)
 
         response = requests.get( url, headers=headers, data = payload,timeout=(20,60))
+        time.sleep(0.2)
         json_resp = json.loads(response.content)
+        print("refresh complete")
 
         #####################################################################
         ###将获得的access_token保存至服务器
@@ -364,6 +367,7 @@ class fsave:
         }
         #错误处理
         requests.post(change_panbaidu_access_token2_api, headers=headers,data=json.dumps(data))
+        
 
         self.panbaidu_access_token = json_resp['access_token']
         # config.set("config_panbaidu","access_token",json_resp['access_token'])
@@ -416,6 +420,8 @@ class fsave:
         'block_list': md5_list}
 
         response = requests.post( url, data=payload,timeout=(30,60))
+        print("preupload complete")
+        time.sleep(0.2)
         json_resp = json.loads(response.content)
         self.panbaidu_uploadid = json_resp["uploadid"]
         
@@ -440,7 +446,7 @@ class fsave:
             # perr("Error loading progress, no resumption.\n{}".format(ex))
             logging.error("Error loading progress, no resumption.\n{}".format(ex))
         
-        progress_slice_md5_list = []#the slice of progress
+        # progress_slice_md5_list = []#the slice of progress
         if self.filepath in progress:
             (slice_size,md5s_list, panbbaidu_upload_api) = progress[self.filepath]
             self.panbaidu_uploadid = panbbaidu_upload_api#如果是从某个分片上传失败了则重新上传。
@@ -496,8 +502,10 @@ class fsave:
 			        'file': ('file', file_chunk_data, 'application/octet-stream')
                     }
                     j = 0
+                    logging.info(f"uploadid:{self.panbaidu_uploadid},access_token{self.panbaidu_access_token}")
                     while j < self._retry:
                         response = requests.post(url=url, headers=headers, data = payload,files = files)
+                        time.sleep(0.2)
                         j = j+1
                         if response.status_code == 200:
                             self.panbaidu_update_progress_entry()
@@ -641,14 +649,15 @@ class fsave:
                             },
                         # timeout=(10,30)
                     )
+                    print(response)
+                    print(response.content,"\n")
+                    
                     i = i + 1
                     if response.status_code == 202 or response.status_code ==201:
                         current_chunk = current_chunk + 1
                         break
                 #test
-                print(response)
-                print(response.content,"\n")
-                
+                    
 
                 # HTTP 201 Created：该状态码表示服务器已成功处理请求并创建了新的资源
                 if response.status_code == 201:
