@@ -9,7 +9,15 @@
 7. 记录相关访问ip如果ip过多就那啥
 8. progress[fullpath] = (self._slice_size, self._slice_md5s)
 9. 解决问题1：增加超时相关内容
-10. 解决问题2：断续上传不够完善-每次重新使用断续上传的值的时候会把原有的值给删除？？？
+10. **添加关于远程文件所在路径内容**
+11. 文件读取也有问题
+
+
+
+### exhentai爬虫的部分疑问
+
+1. file = Path(path + name[0] + '\\' + name[0] + '.jpg')需要把代码中关于只争对windows的语法路径换成可移植类型的。
+2. p = requests.get(self.pic[cr], cookies=self.cookie, headers=self.head)  # 请求图片连接，查询这个是否是原图，如果不是就改动
 
 ### 总结一下之后要干啥
 
