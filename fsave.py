@@ -899,7 +899,7 @@ def deeper_dir(string='', pathcurrent=os.path.dirname(os.path.abspath(__file__))
         if os.path.isdir(pathson):
             pathson = os.path.join(pathson, x)
             if os.path.isdir(pathson) and not os.path.basename(pathson).startswith('.') :#排除隐藏文件
-                deeper_dir(string, pathson)
+                deeper_dir(string, pathson,file_dir)
     return
 
 #将数据保存为json
